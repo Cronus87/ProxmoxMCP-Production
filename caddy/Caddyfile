@@ -1,0 +1,64 @@
+# Caddyfile for Proxmox MCP Server
+# Replace 'mcp.yourdomain.com' with your actual domain
+
+# HTTP redirect
+mcp.yourdomain.com {
+    reverse_proxy mcp-server:8080 {
+        header_up Host {upstream_hostport}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+    
+    # Enable HTTP/2
+    protocols h1 h2
+    
+    # Security headers
+    header {
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        X-XSS-Protection "1; mode=block"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Permissions-Policy "geolocation=(), microphone=(), camera=()"
+    }
+    
+    # CORS headers for MCP clients
+    header {
+        Access-Control-Allow-Origin "*"
+        Access-Control-Allow-Methods "GET, POST, OPTIONS"
+        Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With"
+    }
+    
+    # Handle OPTIONS requests for CORS
+    @options {
+        method OPTIONS
+    }
+    respond @options 204
+    
+    # Rate limiting
+    rate_limit {
+        zone mcp {
+            key {remote_host}
+            events 100
+            window 1m
+        }
+    }
+}
+
+# Local development without domain (comment out for production)
+:80 {
+    reverse_proxy mcp-server:8080
+    
+    # CORS headers for development
+    header {
+        Access-Control-Allow-Origin "*"
+        Access-Control-Allow-Methods "GET, POST, OPTIONS"
+        Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With"
+    }
+    
+    @options {
+        method OPTIONS
+    }
+    respond @options 204
+}

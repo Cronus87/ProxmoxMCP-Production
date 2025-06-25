@@ -1,0 +1,75 @@
+# Environment & Configuration
+.env
+.env.local
+.env.production
+.env.*
+
+# SSH Keys & Secrets (CRITICAL - NEVER COMMIT)
+keys/*
+*.key
+*.pem
+*_rsa*
+*_ed25519*
+id_rsa*
+id_ed25519*
+*private*
+*secret*
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv/
+
+# Logs
+logs/
+*.log
+mcp_server.log*
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+*~
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Test outputs
+test_output/
+test_results/
+.pytest_cache/
+.coverage
+
+# Docker
+docker-compose.override.yml
