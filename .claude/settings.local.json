@@ -29,7 +29,8 @@
       "Bash(grep:*)",
       "Bash(rg:*)",
       "Bash(python:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(git rev-parse:*)"
     ],
     "deny": []
   }
