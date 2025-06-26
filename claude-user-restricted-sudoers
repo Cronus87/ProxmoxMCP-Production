@@ -1,0 +1,197 @@
+# Restricted sudoers configuration for claude-user
+# This configuration allows Proxmox administration while blocking dangerous operations
+# 
+# SECURITY REQUIREMENTS MET:
+# - Cannot modify root@pam user
+# - Cannot delete main Proxmox node
+# - Cannot delete /boot or critical system binaries
+# - CAN manage VMs, containers, storage, networking
+# - CAN create/manage non-root users
+
+# User specification for claude-user
+User_Alias CLAUDE_USER = claude-user
+
+# Define command aliases for allowed operations
+Cmnd_Alias PROXMOX_VM_MGMT = \
+    /usr/sbin/qm *, \
+    /usr/sbin/pct *, \
+    /usr/bin/qemu-img *, \
+    /usr/sbin/pvesh get /nodes/*/qemu/*, \
+    /usr/sbin/pvesh post /nodes/*/qemu/*, \
+    /usr/sbin/pvesh put /nodes/*/qemu/*, \
+    /usr/sbin/pvesh delete /nodes/*/qemu/*/
+
+Cmnd_Alias PROXMOX_STORAGE_MGMT = \
+    /usr/sbin/pvesm *, \
+    /usr/sbin/zfs list *, \
+    /usr/sbin/zfs get *, \
+    /usr/sbin/zfs set *, \
+    /usr/sbin/zpool status *, \
+    /usr/sbin/zpool list *, \
+    /usr/sbin/lvs *, \
+    /usr/sbin/vgs *, \
+    /usr/sbin/pvs *, \
+    /usr/sbin/lvcreate *, \
+    /usr/sbin/lvremove *, \
+    /usr/sbin/lvextend *, \
+    /usr/sbin/vgcreate *, \
+    /usr/sbin/vgremove *
+
+Cmnd_Alias PROXMOX_NETWORK_MGMT = \
+    /usr/sbin/pvesh get /nodes/*/network*, \
+    /usr/sbin/pvesh post /nodes/*/network*, \
+    /usr/sbin/pvesh put /nodes/*/network*, \
+    /usr/sbin/pvesh delete /nodes/*/network*, \
+    /usr/sbin/brctl *, \
+    /usr/sbin/ip link *, \
+    /usr/sbin/ip addr *, \
+    /usr/sbin/ip route *, \
+    /usr/bin/ovs-vsctl *
+
+Cmnd_Alias PROXMOX_BACKUP_MGMT = \
+    /usr/bin/vzdump *, \
+    /usr/sbin/pvesh get /nodes/*/storage/*, \
+    /usr/sbin/pvesh post /nodes/*/storage/*, \
+    /usr/sbin/pvesh put /nodes/*/storage/*, \
+    /usr/sbin/pvesh delete /nodes/*/storage/*
+
+Cmnd_Alias PROXMOX_MONITORING = \
+    /usr/sbin/pvesh get /nodes/*/status, \
+    /usr/sbin/pvesh get /nodes/*/version, \
+    /usr/sbin/pvesh get /nodes/*/subscriptions, \
+    /usr/sbin/pvesh get /cluster/status, \
+    /usr/sbin/pvesh get /cluster/resources, \
+    /usr/bin/systemctl status pve*, \
+    /usr/bin/systemctl status proxmox*, \
+    /usr/bin/journalctl -u pve*, \
+    /usr/bin/journalctl -u proxmox*
+
+Cmnd_Alias PROXMOX_SERVICE_MGMT = \
+    /usr/bin/systemctl start pve*, \
+    /usr/bin/systemctl stop pve*, \
+    /usr/bin/systemctl restart pve*, \
+    /usr/bin/systemctl reload pve*, \
+    /usr/bin/systemctl enable pve*, \
+    /usr/bin/systemctl disable pve*, \
+    /usr/bin/systemctl start proxmox*, \
+    /usr/bin/systemctl stop proxmox*, \
+    /usr/bin/systemctl restart proxmox*, \
+    /usr/bin/systemctl reload proxmox*, \
+    /usr/bin/systemctl enable proxmox*
+
+Cmnd_Alias PROXMOX_USER_MGMT = \
+    /usr/sbin/pveum user add *, \
+    /usr/sbin/pveum user modify *, \
+    /usr/sbin/pveum user delete *, \
+    /usr/sbin/pveum user list, \
+    /usr/sbin/pveum group add *, \
+    /usr/sbin/pveum group modify *, \
+    /usr/sbin/pveum group delete *, \
+    /usr/sbin/pveum group list, \
+    /usr/sbin/pveum role add *, \
+    /usr/sbin/pveum role modify *, \
+    /usr/sbin/pveum role delete *, \
+    /usr/sbin/pveum role list, \
+    /usr/sbin/pveum acl modify *, \
+    /usr/sbin/pveum acl delete *, \
+    /usr/sbin/pveum acl list, \
+    /usr/sbin/pveum token add *, \
+    /usr/sbin/pveum token modify *, \
+    /usr/sbin/pveum token delete *, \
+    /usr/sbin/pveum token list
+
+Cmnd_Alias SYSTEM_ADMIN_SAFE = \
+    /usr/bin/systemctl status *, \
+    /usr/bin/systemctl is-active *, \
+    /usr/bin/systemctl is-enabled *, \
+    /usr/bin/journalctl *, \
+    /usr/bin/dmesg, \
+    /usr/bin/ps *, \
+    /usr/bin/top, \
+    /usr/bin/htop, \
+    /usr/bin/iotop, \
+    /usr/bin/free, \
+    /usr/bin/df *, \
+    /usr/bin/du *, \
+    /usr/bin/mount, \
+    /usr/bin/umount *, \
+    /usr/sbin/fdisk -l, \
+    /usr/sbin/parted -l, \
+    /usr/sbin/blkid, \
+    /usr/sbin/lsblk, \
+    /usr/bin/lsof *, \
+    /usr/bin/netstat *, \
+    /usr/bin/ss *, \
+    /usr/sbin/iptables -L *, \
+    /usr/sbin/iptables -S *, \
+    /usr/bin/find /var/log *, \
+    /usr/bin/tail /var/log/*, \
+    /usr/bin/head /var/log/*, \
+    /usr/bin/less /var/log/*, \
+    /usr/bin/cat /var/log/*, \
+    /usr/bin/grep * /var/log/*
+
+# Define command aliases for BLOCKED operations
+Cmnd_Alias BLOCKED_ROOT_MODIFY = \
+    /usr/sbin/pveum user modify root@pam *, \
+    /usr/sbin/pveum user delete root@pam, \
+    /usr/sbin/pveum token delete root@pam!*, \
+    /usr/sbin/pveum token modify root@pam!*
+
+Cmnd_Alias BLOCKED_SYSTEM_CRITICAL = \
+    /usr/bin/rm -rf /boot/*, \
+    /usr/bin/rm -rf /boot, \
+    /usr/bin/rm -rf /usr/sbin/*, \
+    /usr/bin/rm -rf /usr/bin/*, \
+    /usr/bin/rm -rf /sbin/*, \
+    /usr/bin/rm -rf /bin/*, \
+    /usr/bin/rm -rf /etc/pve/*, \
+    /usr/bin/rm -rf /etc/systemd/*, \
+    /usr/bin/mv /boot/*, \
+    /usr/bin/mv /usr/sbin/*, \
+    /usr/bin/mv /usr/bin/*, \
+    /usr/bin/mv /sbin/*, \
+    /usr/bin/mv /bin/*, \
+    /usr/bin/chmod * /boot/*, \
+    /usr/bin/chmod * /usr/sbin/*, \
+    /usr/bin/chmod * /usr/bin/*, \
+    /usr/bin/chmod * /sbin/*, \
+    /usr/bin/chmod * /bin/*
+
+Cmnd_Alias BLOCKED_NODE_DELETE = \
+    /usr/sbin/pvecm delnode *, \
+    /usr/sbin/pvesh delete /nodes/*, \
+    /usr/sbin/pvesh delete /cluster/config/nodes/*
+
+Cmnd_Alias BLOCKED_DANGEROUS_SYSTEM = \
+    /usr/bin/dd if=* of=/dev/*, \
+    /usr/bin/dd of=/dev/*, \
+    /usr/sbin/mkfs.*, \
+    /usr/sbin/wipefs *, \
+    /usr/sbin/sgdisk *, \
+    /usr/sbin/gdisk *, \
+    /usr/sbin/fdisk /dev/*, \
+    /usr/sbin/parted /dev/*, \
+    /usr/bin/shred *, \
+    /usr/bin/systemctl stop pve-cluster, \
+    /usr/bin/systemctl disable pve-cluster, \
+    /usr/bin/systemctl mask pve-cluster
+
+# Allow specific Proxmox management operations
+CLAUDE_USER ALL=(ALL) NOPASSWD: PROXMOX_VM_MGMT, PROXMOX_STORAGE_MGMT, PROXMOX_NETWORK_MGMT, PROXMOX_BACKUP_MGMT, PROXMOX_MONITORING, PROXMOX_SERVICE_MGMT, PROXMOX_USER_MGMT, SYSTEM_ADMIN_SAFE
+
+# Explicitly deny dangerous operations
+CLAUDE_USER ALL=(ALL) !BLOCKED_ROOT_MODIFY, !BLOCKED_SYSTEM_CRITICAL, !BLOCKED_NODE_DELETE, !BLOCKED_DANGEROUS_SYSTEM
+
+# Additional restrictions for specific patterns
+Defaults:CLAUDE_USER !visiblepw
+Defaults:CLAUDE_USER always_set_home
+Defaults:CLAUDE_USER match_group_by_gid
+Defaults:CLAUDE_USER always_query_group_plugin
+Defaults:CLAUDE_USER env_reset
+Defaults:CLAUDE_USER env_keep="COLORS DISPLAY HOSTNAME HISTSIZE KDEDIR LS_COLORS"
+Defaults:CLAUDE_USER env_keep+="MAIL PS1 PS2 QTDIR USERNAME LANG LC_ADDRESS LC_CTYPE"
+Defaults:CLAUDE_USER env_keep+="LC_COLLATE LC_IDENTIFICATION LC_MEASUREMENT LC_MESSAGES"
+Defaults:CLAUDE_USER env_keep+="LC_MONETARY LC_NAME LC_NUMERIC LC_PAPER LC_TELEPHONE"
+Defaults:CLAUDE_USER env_keep+="LC_TIME LC_ALL LANGUAGE LINGUAS _XKB_CHARSET XAUTHORITY"
+Defaults:CLAUDE_USER secure_path=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin

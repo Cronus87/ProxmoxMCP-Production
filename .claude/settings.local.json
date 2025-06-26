@@ -1,0 +1,30 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__proxmox-production__execute_command",
+      "Bash(python3:*)",
+      "Bash(ssh:*)",
+      "Bash(scp:*)",
+      "Bash(ls:*)",
+      "Bash(~/proxmox-mcp-wrapper.sh)",
+      "Bash(claude mcp:*)",
+      "Bash(mkdir:*)",
+      "Bash(mv:*)",
+      "Bash(chmod:*)",
+      "Bash(docker image:*)",
+      "Bash(docker pull:*)",
+      "Bash(/mnt/c/Program\\ Files/Docker/Docker/resources/bin/docker --version)",
+      "Bash(visudo:*)",
+      "Bash(bash:*)",
+      "Bash(docker-compose:*)",
+      "Bash(timeout:*)",
+      "mcp__proxmox-production__list_vms",
+      "Bash(pip3 install:*)",
+      "Bash(source:*)",
+      "Bash(pip install:*)",
+      "Bash(nc:*)",
+      "Bash(nmap:*)"
+    ],
+    "deny": []
+  }
+}

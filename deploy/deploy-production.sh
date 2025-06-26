@@ -26,8 +26,19 @@ warn() {
 }
 
 error() {
-    echo -e "${RED}[ERROR] $1${NC}"
+    echo -e "${RED}[ERROR] $1${NC}" >&2
+    cleanup_on_error
     exit 1
+}
+
+# Cleanup function for error handling
+cleanup_on_error() {
+    log "Cleaning up after error..."
+    # Stop any running containers that might be in inconsistent state
+    if [[ -d "$DEPLOY_DIR" ]]; then
+        cd "$DEPLOY_DIR"
+        docker-compose down --timeout 30 2>/dev/null || true
+    fi
 }
 
 info() {
@@ -58,11 +69,17 @@ create_backup() {
         cp -r "$DEPLOY_DIR" "$backup_path"
         log "Backup created at: $backup_path"
         
-        # Cleanup old backups
+        # Cleanup old backups safely
         local backup_count=$(ls -1 "$BACKUP_DIR" | wc -l)
         if [[ $backup_count -gt $MAX_BACKUPS ]]; then
             log "Cleaning up old backups (keeping latest $MAX_BACKUPS)..."
-            ls -1t "$BACKUP_DIR" | tail -n +$((MAX_BACKUPS + 1)) | xargs -I {} rm -rf "$BACKUP_DIR/{}"
+            cd "$BACKUP_DIR"
+            ls -1t | tail -n +$((MAX_BACKUPS + 1)) | while read -r backup_to_remove; do
+                if [[ -d "$backup_to_remove" && "$backup_to_remove" =~ ^backup-[0-9]{8}_[0-9]{6}$ ]]; then
+                    rm -rf "$backup_to_remove"
+                    log "Removed old backup: $backup_to_remove"
+                fi
+            done
         fi
     else
         warn "No existing deployment found to backup"
@@ -133,8 +150,16 @@ update_container() {
     
     cd "$DEPLOY_DIR"
     
-    # Update environment with new image tag
-    sed -i "s/IMAGE_TAG=.*/IMAGE_TAG=$image_tag/" .env || echo "IMAGE_TAG=$image_tag" >> .env
+    # Update environment with new image tag (with validation)
+    if [[ "$image_tag" =~ ^[a-zA-Z0-9._-]+$ ]]; then
+        if grep -q "IMAGE_TAG=" .env; then
+            sed -i "s/IMAGE_TAG=.*/IMAGE_TAG=$image_tag/" .env
+        else
+            echo "IMAGE_TAG=$image_tag" >> .env
+        fi
+    else
+        error "Invalid image tag format: $image_tag"
+    fi
     
     # Pull new image
     docker-compose pull

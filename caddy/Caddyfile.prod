@@ -1,0 +1,170 @@
+# Production Caddyfile for Proxmox MCP Server
+# Replace 'your-domain.com' with your actual domain for SSL/TLS
+# For development/testing, the local configuration is used
+
+# Global options
+{
+    # Email for Let's Encrypt certificates (replace with your email)
+    email admin@your-domain.com
+    
+    # Enable admin API (optional, for management)
+    admin :2019
+    
+    # Log configuration
+    log {
+        output file /data/access.log {
+            roll_size 100mb
+            roll_keep 5
+            roll_keep_for 720h
+        }
+        format json
+        level INFO
+    }
+    
+    # Security options
+    servers {
+        timeouts {
+            read_body   10s
+            read_header 5s
+            write       10s
+            idle        2m
+        }
+        max_header_size 1MB
+    }
+}
+
+# Production domain configuration with SSL/TLS
+your-domain.com {
+    # Enable automatic HTTPS
+    tls {
+        # Let's Encrypt configuration
+        # protocols tls1.2 tls1.3
+    }
+    
+    # Security headers
+    header {
+        # HSTS
+        Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+        
+        # Content Security Policy
+        Content-Security-Policy "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self'; connect-src 'self' ws: wss:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'"
+        
+        # Other security headers
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "DENY"
+        X-XSS-Protection "1; mode=block"
+        Referrer-Policy "strict-origin-when-cross-origin"
+        Permissions-Policy "geolocation=(), microphone=(), camera=(), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=()"
+        
+        # Remove server identification
+        -Server
+        -X-Powered-By
+    }
+    
+    # CORS headers for MCP clients
+    @cors {
+        header Origin *
+    }
+    header @cors {
+        Access-Control-Allow-Origin "{http.request.header.Origin}"
+        Access-Control-Allow-Methods "GET, POST, OPTIONS, PUT, DELETE"
+        Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With, X-API-Key"
+        Access-Control-Allow-Credentials "true"
+        Access-Control-Max-Age "3600"
+        Vary "Origin"
+    }
+    
+    # Handle preflight OPTIONS requests
+    @options {
+        method OPTIONS
+    }
+    respond @options 204 {
+        header {
+            Access-Control-Allow-Origin "{http.request.header.Origin}"
+            Access-Control-Allow-Methods "GET, POST, OPTIONS, PUT, DELETE"
+            Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With, X-API-Key"
+            Access-Control-Allow-Credentials "true"
+            Access-Control-Max-Age "3600"
+        }
+    }
+    
+    # Rate limiting matcher
+    @ratelimited {
+        not remote_ip 127.0.0.1 ::1 private_ranges
+    }
+    
+    # Main reverse proxy configuration
+    reverse_proxy @ratelimited mcp-server:8080 {
+        # Headers for proper forwarding
+        header_up Host {upstream_hostport}
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+        header_up X-Forwarded-Port {server_port}
+        
+        # Health checking
+        health_uri /health
+        health_interval 30s
+        health_timeout 5s
+        
+        # Load balancing (for future scaling)
+        lb_policy round_robin
+        
+        # Timeouts
+        transport http {
+            dial_timeout 5s
+            response_header_timeout 10s
+        }
+    }
+    
+    # Logging for this site
+    log {
+        output file /data/your-domain.log {
+            roll_size 50mb
+            roll_keep 10
+        }
+        format json
+    }
+}
+
+# Development/testing configuration (HTTP only)
+:80 {
+    # Basic security headers for development
+    header {
+        X-Content-Type-Options "nosniff"
+        X-Frame-Options "SAMEORIGIN"
+        X-XSS-Protection "1; mode=block"
+        -Server
+    }
+    
+    # CORS headers for development
+    header {
+        Access-Control-Allow-Origin "*"
+        Access-Control-Allow-Methods "GET, POST, OPTIONS, PUT, DELETE"
+        Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With"
+    }
+    
+    # Handle OPTIONS requests
+    @options {
+        method OPTIONS
+    }
+    respond @options 204
+    
+    # Reverse proxy to MCP server
+    reverse_proxy mcp-server:8080 {
+        header_up X-Real-IP {remote_host}
+        header_up X-Forwarded-For {remote_host}
+        header_up X-Forwarded-Proto {scheme}
+    }
+}
+
+# Health check endpoint
+:8081 {
+    respond /health 200 {
+        body "Caddy OK"
+    }
+    
+    respond /metrics 200 {
+        body "# Basic metrics endpoint\ncaddy_up 1\n"
+    }
+}

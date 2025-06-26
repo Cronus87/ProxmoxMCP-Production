@@ -107,7 +107,9 @@ class ProxmoxMCPServer:
             
             # Feature Flags
             "enable_dangerous_commands": os.getenv("ENABLE_DANGEROUS_COMMANDS", "False").lower() == "true",
-            "enable_proxmox_api": os.getenv("ENABLE_PROXMOX_API", "False").lower() == "true"
+            "enable_proxmox_api": os.getenv("ENABLE_PROXMOX_API", "False").lower() == "true",
+            "enable_local_execution": os.getenv("ENABLE_LOCAL_EXECUTION", "False").lower() == "true",
+            "enable_ssh": os.getenv("ENABLE_SSH", "True").lower() == "true"
         }
         
         # Set defaults based on SSH target
@@ -532,41 +534,91 @@ class ProxmoxMCPServer:
                 raise Exception("No valid SSH authentication method configured")
     
     async def _execute_command(self, command: str, timeout: int = 30) -> str:
-        """Execute a shell command via SSH"""
+        """Execute a shell command either locally or via SSH"""
         # Safety check for dangerous commands
         dangerous_commands = ['rm -rf /', 'dd if=/dev/zero', 'mkfs', ':(){ :|:& };:']
         if not self.config["enable_dangerous_commands"]:
             for dangerous in dangerous_commands:
                 if dangerous in command:
-                    return f"Command blocked for safety: {command}"
+                    return json.dumps({
+                        "command": command,
+                        "error": f"Command blocked for safety: {command}",
+                        "stdout": "",
+                        "stderr": "",
+                        "exit_status": -1,
+                        "timestamp": datetime.now().isoformat()
+                    }, indent=2)
         
         try:
-            await self._connect_ssh()
+            # Use local execution if enabled and SSH is disabled
+            if self.config["enable_local_execution"] and not self.config["enable_ssh"]:
+                logger.info(f"Executing command locally: {command}")
+                
+                # Execute command locally using subprocess
+                process = await asyncio.create_subprocess_shell(
+                    command,
+                    stdout=asyncio.subprocess.PIPE,
+                    stderr=asyncio.subprocess.PIPE
+                )
+                
+                try:
+                    stdout_data, stderr_data = await asyncio.wait_for(
+                        process.communicate(), timeout=timeout
+                    )
+                    
+                    result = {
+                        "command": command,
+                        "stdout": stdout_data.decode('utf-8'),
+                        "stderr": stderr_data.decode('utf-8'),
+                        "exit_status": process.returncode,
+                        "timestamp": datetime.now().isoformat()
+                    }
+                    
+                    return json.dumps(result, indent=2)
+                    
+                except asyncio.TimeoutError:
+                    process.kill()
+                    await process.wait()
+                    result = {
+                        "command": command,
+                        "error": f"Command timed out after {timeout} seconds",
+                        "stdout": "",
+                        "stderr": "",
+                        "exit_status": -1,
+                        "timestamp": datetime.now().isoformat()
+                    }
+                    return json.dumps(result, indent=2)
             
-            # Verify SSH client is ready
-            if not self.ssh_client or not self.ssh_client.get_transport() or not self.ssh_client.get_transport().is_active():
-                raise Exception("SSH connection not active")
-            
-            stdin, stdout, stderr = self.ssh_client.exec_command(command, timeout=timeout)
-            
-            output = stdout.read().decode('utf-8')
-            error = stderr.read().decode('utf-8')
-            
-            result = {
-                "command": command,
-                "stdout": output,
-                "stderr": error,
-                "exit_status": stdout.channel.recv_exit_status(),
-                "timestamp": datetime.now().isoformat()
-            }
-            
-            return json.dumps(result, indent=2)
+            else:
+                # Use SSH execution (existing behavior)
+                logger.info(f"Executing command via SSH: {command}")
+                await self._connect_ssh()
+                
+                # Verify SSH client is ready
+                if not self.ssh_client or not self.ssh_client.get_transport() or not self.ssh_client.get_transport().is_active():
+                    raise Exception("SSH connection not active")
+                
+                stdin, stdout, stderr = self.ssh_client.exec_command(command, timeout=timeout)
+                
+                output = stdout.read().decode('utf-8')
+                error = stderr.read().decode('utf-8')
+                
+                result = {
+                    "command": command,
+                    "stdout": output,
+                    "stderr": error,
+                    "exit_status": stdout.channel.recv_exit_status(),
+                    "timestamp": datetime.now().isoformat()
+                }
+                
+                return json.dumps(result, indent=2)
             
         except Exception as e:
-            logger.error(f"SSH command execution failed: {str(e)}")
+            execution_method = "local" if (self.config["enable_local_execution"] and not self.config["enable_ssh"]) else "SSH"
+            logger.error(f"{execution_method} command execution failed: {str(e)}")
             error_result = {
                 "command": command,
-                "error": f"SSH execution failed: {str(e)}",
+                "error": f"{execution_method} execution failed: {str(e)}",
                 "stdout": "",
                 "stderr": "",
                 "exit_status": -1,

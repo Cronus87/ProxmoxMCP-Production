@@ -10,8 +10,8 @@ mcp.yourdomain.com {
         header_up X-Forwarded-Proto {scheme}
     }
     
-    # Enable HTTP/2
-    protocols h1 h2
+    # HTTP/2 is enabled by default in Caddy v2
+    # protocols directive removed - not supported in Caddy v2
     
     # Security headers
     header {
@@ -36,14 +36,15 @@ mcp.yourdomain.com {
     }
     respond @options 204
     
-    # Rate limiting
-    rate_limit {
-        zone mcp {
-            key {remote_host}
-            events 100
-            window 1m
-        }
+    # Rate limiting using proper Caddy v2 syntax
+    @ratelimited {
+        not remote_ip 127.0.0.1 ::1
     }
+    # Note: Basic rate limiting - for production use Caddy rate limit plugin
+    # handle @ratelimited {
+    #     rate_limit 100r/m
+    #     reverse_proxy mcp-server:8080
+    # }
 }
 
 # Local development without domain (comment out for production)

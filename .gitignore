@@ -73,3 +73,7 @@ test_results/
 
 # Docker
 docker-compose.override.yml
+
+# Documentation (internal project docs, not for public repo)
+docs/
+/test_env

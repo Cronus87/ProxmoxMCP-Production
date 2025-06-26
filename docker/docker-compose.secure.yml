@@ -1,0 +1,404 @@
+# Production-Ready Docker Compose for Proxmox MCP Server
+# Enhanced security configuration with network isolation and hardening
+# Uses Compose Specification format without deprecated version directive
+
+services:
+  mcp-server:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.prod
+      args:
+        BUILD_DATE: ${BUILD_DATE:-now}
+        VCS_REF: ${VCS_REF:-dev}
+        VERSION: ${VERSION:-latest}
+    image: proxmox-mcp-server:${IMAGE_TAG:-latest}
+    container_name: proxmox-mcp-server
+    restart: unless-stopped
+    
+    # Network configuration
+    networks:
+      - mcp-backend
+    
+    # Port binding (only to internal network)
+    expose:
+      - "8080"
+    
+    # Environment variables
+    environment:
+      - MCP_HOST=0.0.0.0
+      - MCP_PORT=8080
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      # Proxmox configuration from environment
+      - SSH_TARGET=${SSH_TARGET}
+      - SSH_HOST=${SSH_HOST}
+      - SSH_USER=${SSH_USER}
+      - SSH_PORT=${SSH_PORT:-22}
+      - SSH_KEY_PATH=/app/keys/ssh_key
+      - PROXMOX_HOST=${PROXMOX_HOST}
+      - PROXMOX_USER=${PROXMOX_USER}
+      - PROXMOX_TOKEN_NAME=${PROXMOX_TOKEN_NAME}
+      - PROXMOX_TOKEN_VALUE=${PROXMOX_TOKEN_VALUE}
+      - PROXMOX_VERIFY_SSL=${PROXMOX_VERIFY_SSL:-false}
+      - ENABLE_PROXMOX_API=${ENABLE_PROXMOX_API:-true}
+      - ENABLE_DANGEROUS_COMMANDS=${ENABLE_DANGEROUS_COMMANDS:-false}
+    
+    # Volume mounts (read-only where possible)
+    volumes:
+      - mcp_logs:/app/logs:rw
+      - /opt/proxmox-mcp/keys:/app/keys:ro
+      - /opt/proxmox-mcp/config:/app/config:ro
+    
+    # Security configuration
+    security_opt:
+      - no-new-privileges:true
+      - apparmor:docker-default
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,size=100m
+      - /app/tmp:noexec,nosuid,size=50m
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    
+    # User namespace remapping
+    user: "1000:1000"
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    
+    # Process limits
+    pids_limit: 200
+    
+    # Memory swappiness
+    mem_swappiness: 0
+    
+    # OOM kill disable
+    oom_kill_disable: false
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: mcp-reverse-proxy
+    restart: unless-stopped
+    
+    # Network configuration
+    networks:
+      - mcp-frontend
+      - mcp-backend
+    
+    # Port bindings
+    ports:
+      - "80:80"
+      - "443:443"
+      - "127.0.0.1:2019:2019"  # Admin API (localhost only)
+    
+    # Volume mounts
+    volumes:
+      - /opt/proxmox-mcp/caddy/Caddyfile.prod:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data:rw
+      - caddy_config:/config:rw
+      - caddy_logs:/var/log/caddy:rw
+    
+    # Security configuration
+    security_opt:
+      - no-new-privileges:true
+      - apparmor:docker-default
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    
+    # Dependencies
+    depends_on:
+      mcp-server:
+        condition: service_healthy
+    
+    # Health check
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "3"
+    
+    # Process limits
+    pids_limit: 100
+
+  # Security monitoring container
+  security-monitor:
+    image: alpine:latest
+    container_name: mcp-security-monitor
+    restart: unless-stopped
+    
+    # Network configuration
+    networks:
+      - mcp-monitoring
+    
+    # Security monitoring script
+    command: >
+      sh -c "
+        apk add --no-cache curl jq &&
+        while true; do
+          echo '[$(date)] Security monitoring check...' &&
+          curl -s http://caddy:8081/health > /dev/null || echo 'ALERT: Caddy health check failed' &&
+          sleep 300
+        done
+      "
+    
+    # Security configuration
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:noexec,nosuid,size=10m
+    cap_drop:
+      - ALL
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '0.1'
+          memory: 128M
+        reservations:
+          cpus: '0.05'
+          memory: 64M
+    
+    # Process limits
+    pids_limit: 10
+    
+    profiles:
+      - monitoring
+
+  # Optional: Prometheus monitoring
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: mcp-prometheus
+    restart: unless-stopped
+    
+    # Network configuration
+    networks:
+      - mcp-monitoring
+    
+    # Port binding (localhost only)
+    ports:
+      - "127.0.0.1:9090:9090"
+    
+    # Configuration
+    volumes:
+      - /opt/proxmox-mcp/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus:rw
+    
+    # Security configuration
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    
+    # User configuration
+    user: "65534:65534"  # nobody user
+    
+    profiles:
+      - monitoring
+
+  # Optional: Grafana dashboards
+  grafana:
+    image: grafana/grafana:latest
+    container_name: mcp-grafana
+    restart: unless-stopped
+    
+    # Network configuration
+    networks:
+      - mcp-monitoring
+    
+    # Port binding (localhost only)
+    ports:
+      - "127.0.0.1:3000:3000"
+    
+    # Environment
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_SECURITY_DISABLE_GRAVATAR=true
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_USERS_ALLOW_ORG_CREATE=false
+      - GF_SECURITY_COOKIE_SECURE=true
+      - GF_SECURITY_COOKIE_SAMESITE=strict
+      - GF_SECURITY_STRICT_TRANSPORT_SECURITY=true
+    
+    # Configuration
+    volumes:
+      - grafana_data:/var/lib/grafana:rw
+      - /opt/proxmox-mcp/monitoring/grafana:/etc/grafana/provisioning:ro
+    
+    # Security configuration
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+    
+    # User configuration
+    user: "472:472"  # grafana user
+    
+    profiles:
+      - monitoring
+
+# Network configuration with isolation
+networks:
+  # Frontend network (exposed to internet)
+  mcp-frontend:
+    driver: bridge
+    name: mcp-frontend
+    ipam:
+      config:
+        - subnet: 172.20.1.0/24
+          gateway: 172.20.1.1
+    driver_opts:
+      com.docker.network.bridge.enable_icc: "false"
+      com.docker.network.bridge.enable_ip_masquerade: "true"
+      com.docker.network.bridge.host_binding_ipv4: "0.0.0.0"
+      com.docker.network.driver.mtu: "1500"
+    labels:
+      - "network.description=Frontend network for reverse proxy"
+  
+  # Backend network (internal communication)
+  mcp-backend:
+    driver: bridge
+    name: mcp-backend
+    internal: true  # No external access
+    ipam:
+      config:
+        - subnet: 172.20.2.0/24
+          gateway: 172.20.2.1
+    driver_opts:
+      com.docker.network.bridge.enable_icc: "true"
+      com.docker.network.driver.mtu: "1500"
+    labels:
+      - "network.description=Backend network for application services"
+  
+  # Monitoring network (internal)
+  mcp-monitoring:
+    driver: bridge
+    name: mcp-monitoring
+    internal: true
+    ipam:
+      config:
+        - subnet: 172.20.3.0/24
+          gateway: 172.20.3.1
+    driver_opts:
+      com.docker.network.bridge.enable_icc: "true"
+      com.docker.network.driver.mtu: "1500"
+    labels:
+      - "network.description=Monitoring network for observability services"
+
+# Volume configuration
+volumes:
+  mcp_logs:
+    name: mcp_logs
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /opt/proxmox-mcp/logs
+  
+  caddy_data:
+    name: caddy_data
+    driver: local
+    labels:
+      - "volume.description=Caddy SSL certificates and data"
+  
+  caddy_config:
+    name: caddy_config
+    driver: local
+    labels:
+      - "volume.description=Caddy configuration cache"
+  
+  caddy_logs:
+    name: caddy_logs
+    driver: local
+    labels:
+      - "volume.description=Caddy access and error logs"
+  
+  prometheus_data:
+    name: prometheus_data
+    driver: local
+    labels:
+      - "volume.description=Prometheus metrics storage"
+  
+  grafana_data:
+    name: grafana_data
+    driver: local
+    labels:
+      - "volume.description=Grafana dashboard and configuration storage"
