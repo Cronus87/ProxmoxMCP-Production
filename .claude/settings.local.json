@@ -48,7 +48,8 @@
       "mcp__proxmox-production__node_status",
       "Bash(sudo systemctl status:*)",
       "mcp__proxmox-production__proxmox_api",
-      "Bash(echo)"
+      "Bash(echo)",
+      "Bash(cp:*)"
     ],
     "deny": []
   }

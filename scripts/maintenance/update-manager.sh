@@ -431,15 +431,15 @@ update_security_configuration() {
     
     info "Updating security configuration..."
     
-    # Check if new security configuration exists
-    local new_sudoers="$update_dir/claude-user-security-enhanced-sudoers"
+    # Check if new security configuration exists (now generated inline by install.sh)
+    local new_sudoers="$update_dir/claude-user-practical-admin-sudoers"
     if [[ -f "$new_sudoers" ]]; then
         # Backup current sudoers
         if [[ -f "/etc/sudoers.d/claude-user" ]]; then
             cp "/etc/sudoers.d/claude-user" "/etc/sudoers.d/claude-user.backup-$(date +%Y%m%d-%H%M%S)"
         fi
         
-        # Deploy new security configuration
+        # Deploy new practical admin configuration
         cp "$new_sudoers" "/etc/sudoers.d/claude-user"
         chmod 440 "/etc/sudoers.d/claude-user"
         
