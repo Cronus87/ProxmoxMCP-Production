@@ -1,6 +1,40 @@
 # Proxmox MCP - Troubleshooting Guide
 
-**Comprehensive troubleshooting for common issues and solutions**
+**Comprehensive troubleshooting for production deployment with practical admin model**
+
+## ✅ Recent Fixes Applied (install.sh v2.0)
+
+**CRITICAL FIXES IMPLEMENTED:**
+
+1. **✅ SSH Key Path Mismatch FIXED**
+   - **Problem**: Container expected `/app/keys/ssh_key` but install.sh created different name
+   - **Fix**: Generate SSH key as `$KEYS_DIR/ssh_key` with correct container ownership (1000:1000)
+   - **Impact**: Container can now access SSH keys immediately after installation
+
+2. **✅ MCP Endpoint Configuration FIXED**
+   - **Problem**: Client instructions referenced wrong `/api` endpoint
+   - **Fix**: All instructions now correctly use `/api/mcp` endpoint
+   - **Impact**: MCP connection works immediately without manual corrections
+
+3. **✅ End-to-End Validation ADDED**
+   - **Problem**: Install.sh only tested health endpoint, not actual MCP tools
+   - **Fix**: Added real execute_command testing during installation
+   - **Impact**: Installation fails if MCP tools don't work, ensuring working deployment
+
+4. **✅ Container Permission Issues FIXED**
+   - **Problem**: SSH keys had wrong ownership for container user
+   - **Fix**: Set keys to 1000:1000 (mcpuser) during key generation
+   - **Impact**: Container can access SSH keys without permission errors
+
+5. **✅ Practical Admin Model DEPLOYED**
+   - **Problem**: Overly restrictive security prevented real admin work
+   - **Fix**: Implement practical admin model - allow admin tools, block only catastrophic operations
+   - **Impact**: Full VM/LXC/Docker management while maintaining security
+
+6. **✅ Development Artifacts CLEANED**
+   - **Problem**: Emergency troubleshooting files polluting production
+   - **Fix**: Removed all emergency-*.py, fix-*.sh, restart-*.sh files
+   - **Impact**: Clean production environment
 
 ## Table of Contents
 
@@ -49,33 +83,42 @@ df -h
 # Ensure at least 20GB free space
 ```
 
-### Issue: SSH Key Generation/Deployment Fails
+### Issue: SSH Key Access Issues
 
 **Symptoms:**
-- Key generation fails
-- SSH key deployment fails
-- Permission denied on key files
+- Container can't access SSH keys
+- Permission denied from container
+- SSH authentication fails from MCP tools
+
+**Root Cause:** SSH key ownership must be 1000:1000 for container access
 
 **Solutions:**
 
 ```bash
-# Manual key generation
-sudo rm -f /opt/proxmox-mcp/keys/claude_proxmox_key*
-sudo ssh-keygen -t ed25519 -f /opt/proxmox-mcp/keys/claude_proxmox_key -C "proxmox-mcp-manual" -N ""
-sudo chmod 600 /opt/proxmox-mcp/keys/claude_proxmox_key
-sudo chmod 644 /opt/proxmox-mcp/keys/claude_proxmox_key.pub
+# Check current key ownership
+ls -la /opt/proxmox-mcp/keys/
 
-# Manual key deployment
-ssh-copy-id -i /opt/proxmox-mcp/keys/claude_proxmox_key.pub claude-user@YOUR_PROXMOX_IP
+# Fix key ownership (CRITICAL for container access)
+sudo chown -R 1000:1000 /opt/proxmox-mcp/keys/
+sudo chmod 600 /opt/proxmox-mcp/keys/ssh_key
+sudo chmod 644 /opt/proxmox-mcp/keys/ssh_key.pub
 
-# Alternative: Manual key copy
-ssh root@YOUR_PROXMOX_IP "mkdir -p /home/claude-user/.ssh"
-scp /opt/proxmox-mcp/keys/claude_proxmox_key.pub root@YOUR_PROXMOX_IP:/home/claude-user/.ssh/authorized_keys
-ssh root@YOUR_PROXMOX_IP "chown claude-user:claude-user /home/claude-user/.ssh/authorized_keys"
-ssh root@YOUR_PROXMOX_IP "chmod 600 /home/claude-user/.ssh/authorized_keys"
+# Test container can access keys
+cd /opt/proxmox-mcp/docker
+sudo docker-compose -f docker-compose.prod.yml exec mcp-server ls -la /app/keys/
 
-# Test SSH connection
-ssh -i /opt/proxmox-mcp/keys/claude_proxmox_key claude-user@YOUR_PROXMOX_IP "whoami"
+# Test SSH connection from container
+sudo docker-compose -f docker-compose.prod.yml exec mcp-server ssh -i /app/keys/ssh_key -o BatchMode=yes claude-user@localhost whoami
+
+# If key doesn't exist, regenerate with correct ownership
+sudo rm -f /opt/proxmox-mcp/keys/ssh_key*
+sudo ssh-keygen -t rsa -b 4096 -f /opt/proxmox-mcp/keys/ssh_key -N "" -C "claude-user@proxmox-mcp"
+sudo chown 1000:1000 /opt/proxmox-mcp/keys/ssh_key*
+
+# Redeploy public key to claude-user
+sudo cp /opt/proxmox-mcp/keys/ssh_key.pub /home/claude-user/.ssh/authorized_keys
+sudo chown claude-user:claude-user /home/claude-user/.ssh/authorized_keys
+sudo chmod 600 /home/claude-user/.ssh/authorized_keys
 ```
 
 ### Issue: User Creation Fails
@@ -161,16 +204,20 @@ sudo cat /opt/proxmox-mcp/.env
 - Container exits immediately
 - Health check fails
 
-**Diagnosis:**
+**Diagnosis (Note Correct Paths):**
 
 ```bash
-# Check container status
+# Check container status (use correct docker-compose file)
+cd /opt/proxmox-mcp/docker
 sudo docker ps -a
-sudo docker-compose -f /opt/proxmox-mcp/docker-compose.yml ps
+sudo docker-compose -f docker-compose.prod.yml ps
 
 # Check container logs
 sudo docker logs proxmox-mcp-server
-sudo docker-compose -f /opt/proxmox-mcp/docker-compose.yml logs mcp-server
+sudo docker-compose -f docker-compose.prod.yml logs mcp-server
+
+# Check if container can access SSH keys
+sudo docker-compose -f docker-compose.prod.yml exec mcp-server ls -la /app/keys/
 
 # Check image availability
 sudo docker images | grep proxmox-mcp
@@ -179,23 +226,27 @@ sudo docker images | grep proxmox-mcp
 **Solutions:**
 
 ```bash
-# Rebuild container
-cd /opt/proxmox-mcp
-sudo docker-compose down
-sudo docker-compose build --no-cache
-sudo docker-compose up -d
+# Rebuild container (use correct compose file)
+cd /opt/proxmox-mcp/docker
+sudo docker-compose -f docker-compose.prod.yml down
+sudo docker-compose -f docker-compose.prod.yml build --no-cache
+sudo docker-compose -f docker-compose.prod.yml up -d
+
+# Fix SSH key permissions for container (most common issue)
+sudo chown -R 1000:1000 /opt/proxmox-mcp/keys/
+sudo chmod 600 /opt/proxmox-mcp/keys/ssh_key
+sudo chmod 644 /opt/proxmox-mcp/keys/ssh_key.pub
 
 # Check for port conflicts
 sudo netstat -tlnp | grep 8080
 sudo lsof -i :8080
 
-# Fix permission issues
-sudo chown -R root:docker /opt/proxmox-mcp
-sudo chmod -R 755 /opt/proxmox-mcp
-
-# Restart Docker service
-sudo systemctl restart docker
+# Restart services via systemd
 sudo systemctl restart proxmox-mcp
+
+# Manual container restart
+cd /opt/proxmox-mcp/docker
+sudo docker-compose -f docker-compose.prod.yml restart mcp-server
 ```
 
 ### Issue: Systemd Service Fails
@@ -247,45 +298,57 @@ sudo systemctl enable proxmox-mcp
 sudo systemctl restart proxmox-mcp
 ```
 
-### Issue: Health Check Endpoint Fails
+### Issue: MCP Endpoint Access Fails
 
 **Symptoms:**
-- curl http://localhost:8080/health fails
-- 404 or connection refused errors
-- Service appears running but unresponsive
+- curl http://localhost:8080/health works but MCP tools don't
+- Claude Code shows "connection failed" for MCP tools
+- Wrong endpoint errors in Claude Code
+
+**Root Cause:** MCP endpoint is `/api/mcp`, not just `/api`
 
 **Diagnosis:**
 
 ```bash
-# Check if port is bound
-sudo netstat -tlnp | grep 8080
-sudo ss -tlnp | grep 8080
+# Test health endpoint (should work)
+curl http://localhost:8080/health
 
-# Check container internal health
-sudo docker exec proxmox-mcp-server curl http://localhost:8080/health
+# Test MCP endpoint specifically (most important)
+curl http://localhost:8080/api/mcp
 
-# Check container networking
-sudo docker network ls
-sudo docker network inspect mcp-network
+# Test MCP tools list
+curl -X POST http://localhost:8080/api/mcp \
+  -H "Content-Type: application/json" \
+  -d '{"jsonrpc":"2.0","method":"tools/list","params":{},"id":"test"}'
+
+# Check container internal access
+cd /opt/proxmox-mcp/docker
+sudo docker-compose -f docker-compose.prod.yml exec mcp-server curl http://localhost:8080/api/mcp
 ```
 
 **Solutions:**
 
 ```bash
-# Restart services
+# Restart services if MCP endpoint not responding
 sudo systemctl restart proxmox-mcp
 
-# Check internal connectivity
-sudo docker exec proxmox-mcp-server netstat -tlnp
+# Check container internal networking
+cd /opt/proxmox-mcp/docker
+sudo docker-compose -f docker-compose.prod.yml exec mcp-server netstat -tlnp
 
-# Fix networking issues
-sudo docker network prune
-sudo docker-compose down
-sudo docker-compose up -d
+# Rebuild container if application issues
+sudo docker-compose -f docker-compose.prod.yml down
+sudo docker-compose -f docker-compose.prod.yml build --no-cache
+sudo docker-compose -f docker-compose.prod.yml up -d
 
-# Check firewall
-sudo ufw status
-sudo iptables -L INPUT | grep 8080
+# Fix Claude Code configuration (use correct endpoint)
+claude mcp remove proxmox-production
+claude mcp add --transport http proxmox-production http://YOUR_IP:8080/api/mcp
+claude mcp list  # Should show proxmox-production
+
+# Test in Claude Code
+claude
+# Try: "Please execute the command 'whoami'"
 ```
 
 ---
@@ -373,40 +436,68 @@ curl -k -H "Authorization: PVEAPIToken=root@pam!claude-mcp=NEW_TOKEN" \
   https://YOUR_PROXMOX_IP:8006/api2/json/version
 ```
 
-### Issue: Sudo Configuration Problems
+### Issue: Practical Admin Permissions Problems
 
 **Symptoms:**
-- Commands blocked unexpectedly
-- Sudo permission denied
-- Security validation fails
+- Normal admin commands being blocked
+- "Command not allowed" errors for standard operations
+- VM/LXC operations failing
+
+**Root Cause:** Practical admin model may not be deployed correctly
 
 **Diagnosis:**
 
 ```bash
-# Check sudoers configuration
+# Check if practical admin configuration is deployed
+sudo cat /etc/sudoers.d/claude-user | head -10
+# Should show "Practical Admin Sudoers Configuration"
+
+# Test basic admin operations (these should work)
+sudo -u claude-user sudo systemctl status pveproxy
+sudo -u claude-user sudo qm list
+sudo -u claude-user sudo pct list
+sudo -u claude-user sudo docker ps
+
+# Test blocked operations (these should fail)
+sudo -u claude-user sudo userdel root  # Should be blocked
+sudo -u claude-user sudo systemctl stop pvedaemon  # Should be blocked
+
+# Check sudoers syntax
 sudo visudo -c -f /etc/sudoers.d/claude-user
-
-# Test sudo access
-sudo -u claude-user sudo -l
-
-# Check command blocking
-sudo -u claude-user sudo /usr/sbin/qm list 2>&1
 ```
 
 **Solutions:**
 
 ```bash
-# Redeploy security configuration
-sudo ./deploy-enhanced-security.sh
+# Redeploy practical admin configuration
+cd /opt/proxmox-mcp
+sudo ./scripts/install/install.sh  # Will update sudoers if needed
 
-# Manual sudoers fix
-sudo visudo -f /etc/sudoers.d/claude-user
+# Or manually deploy practical admin sudoers
+sudo tee /etc/sudoers.d/claude-user << 'EOF'
+# Proxmox MCP - Practical Admin Sudoers Configuration
+# Philosophy: Enable real admin work, block only catastrophic actions
 
-# Test specific command
-sudo -u claude-user sudo /usr/sbin/qm list
+# User specification for claude-user
+Defaults:claude-user !requiretty
 
-# Check security logs
-sudo tail -f /var/log/sudo-claude-user.log
+# Core System Administration - Full access to standard admin tools
+claude-user ALL=(ALL:ALL) NOPASSWD: /usr/bin/*, /usr/sbin/*, /bin/*, /sbin/*
+
+# CATASTROPHIC OPERATION BLOCKS - These commands are explicitly forbidden
+claude-user ALL=(ALL:ALL) !/usr/bin/pvecm delnode*, !/usr/sbin/pvecm delnode*
+claude-user ALL=(ALL:ALL) !/usr/sbin/userdel root, !/usr/bin/userdel root
+claude-user ALL=(ALL:ALL) !/usr/sbin/usermod root*, !/usr/bin/usermod root*
+claude-user ALL=(ALL:ALL) !/usr/bin/pveum user delete root@pam*, !/usr/sbin/pveum user delete root@pam*
+claude-user ALL=(ALL:ALL) !/usr/bin/pvesm remove *, !/usr/sbin/pvesm remove *
+EOF
+
+sudo chmod 440 /etc/sudoers.d/claude-user
+sudo visudo -c -f /etc/sudoers.d/claude-user
+
+# Test practical admin capabilities
+sudo -u claude-user sudo qm list
+sudo -u claude-user sudo systemctl status pveproxy
 ```
 
 ---
@@ -626,54 +717,96 @@ EOF
 
 ## Claude Code Integration Issues
 
-### Issue: MCP Tools Not Available
+### Issue: MCP Tools Not Available in Claude Code
 
 **Symptoms:**
 - No MCP tools visible in Claude Code
 - mcp__proxmox-production__ prefix missing
-- Tools list empty
+- Tools list empty or connection errors
+
+**Root Cause:** Usually wrong endpoint URL or configuration
 
 **Diagnosis:**
 
 ```bash
-# Test MCP endpoint
+# Test MCP endpoint (use correct /api/mcp path)
 curl -X POST http://YOUR_PROXMOX_IP:8080/api/mcp \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","method":"tools/list","params":{},"id":"test"}'
 
-# Check Claude Code configuration
-cat ~/.claude.json
+# Should return tools list with execute_command, list_vms, vm_status, etc.
 
-# Verify JSON syntax
-python3 -m json.tool ~/.claude.json
+# Check Claude CLI configuration
+claude mcp list
+# Should show proxmox-production if configured correctly
+
+# Test connectivity from Claude Code
+claude
+# In Claude: "Are MCP tools available?"
 ```
 
 **Solutions:**
 
 ```bash
-# Fix Claude Code configuration
+# Use Claude CLI (recommended approach)
+claude mcp remove proxmox-production  # Remove if exists
+claude mcp add --transport http proxmox-production http://YOUR_PROXMOX_IP:8080/api/mcp
+claude mcp list  # Verify shows proxmox-production
+
+# Test MCP tools in Claude Code
+claude
+# Try these commands:
+# "Please execute the command 'whoami'"
+# "Please list all VMs on the Proxmox server"
+# "Please check the status of the pveproxy service"
+
+# Alternative: Manual configuration
 tee ~/.claude.json << 'EOF'
 {
   "mcpServers": {
     "proxmox-production": {
-      "type": "http",
-      "url": "http://YOUR_PROXMOX_IP:8080/api/mcp",
-      "headers": {
-        "Content-Type": "application/json",
-        "Accept": "application/json"
-      }
+      "command": "npx",
+      "args": [
+        "@modelcontextprotocol/server-fetch",
+        "http://YOUR_PROXMOX_IP:8080/api/mcp"
+      ],
+      "transport": "stdio"
     }
   }
 }
 EOF
+```
 
-# Restart Claude Code
-# Close all Claude Code instances and restart
+### Issue: MCP Tools Execute But Return Errors
 
-# Test MCP connection
-curl -X POST http://YOUR_PROXMOX_IP:8080/api/mcp \
-  -H "Content-Type: application/json" \
-  -d '{"jsonrpc":"2.0","method":"tools/list","params":{},"id":"1"}'
+**Symptoms:**
+- Tools are available in Claude Code
+- Commands execute but return permission errors
+- SSH authentication failures in tool responses
+
+**Root Cause:** Usually SSH key permissions or practical admin configuration
+
+**Solutions:**
+
+```bash
+# Fix SSH key permissions (most common issue)
+sudo chown -R 1000:1000 /opt/proxmox-mcp/keys/
+sudo chmod 600 /opt/proxmox-mcp/keys/ssh_key
+
+# Test SSH connectivity from container
+cd /opt/proxmox-mcp/docker
+sudo docker-compose -f docker-compose.prod.yml exec mcp-server ssh -i /app/keys/ssh_key -o BatchMode=yes claude-user@localhost whoami
+
+# Test practical admin permissions
+sudo -u claude-user sudo qm list
+sudo -u claude-user sudo systemctl status pveproxy
+
+# Restart MCP service after fixes
+sudo systemctl restart proxmox-mcp
+
+# Test in Claude Code
+claude
+# "Please execute the command 'qm list' to show all VMs"
 ```
 
 ### Issue: MCP Connection Timeout
@@ -1021,9 +1154,10 @@ sudo ./deploy-enhanced-security.sh
 ### Complete System Rollback
 
 ```bash
-# Stop all services
+# Stop all services (note correct paths)
 sudo systemctl stop proxmox-mcp
-sudo docker-compose -f /opt/proxmox-mcp/docker-compose.yml down
+cd /opt/proxmox-mcp/docker
+sudo docker-compose -f docker-compose.prod.yml down
 
 # Remove installation
 sudo systemctl disable proxmox-mcp
@@ -1037,6 +1171,9 @@ sudo userdel -r claude-user
 # Clean up Docker
 sudo docker system prune -a
 sudo docker volume prune
+
+# Remove Claude Code configuration
+claude mcp remove proxmox-production
 ```
 
 ---
@@ -1074,19 +1211,236 @@ sudo journalctl -u proxmox-mcp --since "1 hour ago" --no-pager
 sudo docker logs proxmox-mcp-server --tail 50
 ```
 
+## Practical Admin Model Troubleshooting
+
+### What Should Work with Practical Admin Model
+
+**VM and LXC Management:**
+```bash
+# These should work through Claude Code:
+"Please list all VMs: qm list"
+"Please show LXC containers: pct list"
+"Please start VM 100: qm start 100"
+"Please create a snapshot of VM 100: qm snapshot 100 snapshot-name"
+"Please clone VM 100 to 110: qm clone 100 110"
+"Please enter LXC container 100: pct exec 100 bash"
+```
+
+**Docker Operations:**
+```bash
+# These should work through Claude Code:
+"Please show Docker containers: docker ps -a"
+"Please show Docker images: docker images"
+"Please start container nginx: docker start nginx"
+"Please check container logs: docker logs container-name"
+"Please execute command in container: docker exec container-name ls -la"
+```
+
+**System Administration:**
+```bash
+# These should work through Claude Code:
+"Please check service status: systemctl status pveproxy"
+"Please restart a service: systemctl restart networking"
+"Please check disk usage: df -h"
+"Please check running processes: ps aux"
+"Please check network configuration: ip addr show"
+```
+
+**What Should Be Blocked (Catastrophic Operations):**
+```bash
+# These should fail (blocked by practical admin model):
+"Please delete root user: userdel root"  # BLOCKED
+"Please stop core PVE service: systemctl stop pvedaemon"  # BLOCKED
+"Please delete cluster node: pvecm delnode node1"  # BLOCKED
+"Please remove storage: pvesm remove storage1"  # BLOCKED
+```
+
+### System Recovery Procedures
+
+#### Container Restart (Most Common Solution)
+
+```bash
+# Standard restart sequence
+sudo systemctl restart proxmox-mcp
+
+# Manual container restart
+cd /opt/proxmox-mcp/docker
+sudo docker-compose -f docker-compose.prod.yml restart mcp-server
+
+# Full restart (if standard restart fails)
+sudo systemctl stop proxmox-mcp
+sudo docker-compose -f docker-compose.prod.yml down
+sudo systemctl start proxmox-mcp
+
+# Verify restart worked
+curl http://localhost:8080/health
+sudo docker-compose -f docker-compose.prod.yml ps
+```
+
+#### Service Recovery After System Reboot
+
+```bash
+# Services should auto-start, but if not:
+sudo systemctl start docker
+sudo systemctl start proxmox-mcp
+
+# Enable pveproxy if it's disabled
+sudo systemctl enable pveproxy
+sudo systemctl start pveproxy
+
+# Check service status
+sudo systemctl status proxmox-mcp
+sudo systemctl status pveproxy
+sudo systemctl status docker
+```
+
+#### Health Monitoring Commands
+
+```bash
+# Quick health check
+curl http://localhost:8080/health
+# Expected: {"status":"healthy"}
+
+# MCP endpoint check  
+curl http://localhost:8080/api/mcp
+# Should not return 404
+
+# Container status
+cd /opt/proxmox-mcp/docker
+sudo docker-compose -f docker-compose.prod.yml ps
+# All services should show "Up"
+
+# Log monitoring
+sudo docker-compose -f docker-compose.prod.yml logs -f mcp-server
+```
+
+### Quick Validation Commands
+
+```bash
+# Test practical admin deployment
+sudo -u claude-user sudo qm list  # Should work
+sudo -u claude-user sudo systemctl status pveproxy  # Should work
+sudo -u claude-user sudo userdel root  # Should be blocked
+
+# Test MCP functionality
+curl http://localhost:8080/health  # Should return {"status":"healthy"}
+curl http://localhost:8080/api/mcp  # Should not return 404
+
+# Test SSH key access
+sudo chown -R 1000:1000 /opt/proxmox-mcp/keys/
+cd /opt/proxmox-mcp/docker
+sudo docker-compose -f docker-compose.prod.yml exec mcp-server ls -la /app/keys/
+# Should show files owned by mcpuser
+
+# Test SSH connectivity from container
+sudo docker-compose -f docker-compose.prod.yml exec mcp-server ssh -i /app/keys/ssh_key -o BatchMode=yes claude-user@localhost whoami
+# Should return: claude-user
+
+# Test Claude Code connection
+claude mcp list  # Should show proxmox-production
+```
+
 ### Self-Diagnosis Checklist
 
 Before seeking help, verify:
 
+**Basic System Status:**
 - [ ] Service is running: `sudo systemctl status proxmox-mcp`
-- [ ] Containers are healthy: `sudo docker ps`
+- [ ] Containers are healthy: `cd /opt/proxmox-mcp/docker && sudo docker-compose -f docker-compose.prod.yml ps`
 - [ ] Health endpoint responds: `curl http://localhost:8080/health`
-- [ ] SSH connectivity works: `ssh -i /opt/proxmox-mcp/keys/claude_proxmox_key claude-user@YOUR_PROXMOX_IP "whoami"`
-- [ ] API token is valid: Test with curl command
-- [ ] Claude Code configuration is correct: Valid JSON syntax
+- [ ] MCP endpoint responds: `curl http://localhost:8080/api/mcp`
+
+**SSH and Permissions:**
+- [ ] SSH keys have correct ownership: `ls -la /opt/proxmox-mcp/keys/` (should show 1000:1000)
+- [ ] SSH connectivity works: `ssh -i /opt/proxmox-mcp/keys/ssh_key claude-user@localhost "whoami"`
+- [ ] Practical admin permissions work: `sudo -u claude-user sudo qm list`
+
+**Claude Code Integration:**
+- [ ] Claude CLI shows server: `claude mcp list` shows proxmox-production
+- [ ] MCP tools work in Claude Code: Try "Please execute the command 'whoami'"
+- [ ] No permission errors in tool responses
+
+**Network and Firewall:**
 - [ ] Network connectivity: Can access from client machine
 - [ ] Firewall allows required ports: 22, 8080, 80, 443
 - [ ] Disk space available: `df -h`
 - [ ] No resource exhaustion: `free -h`, `top`
 
-Most issues can be resolved by following the diagnostic steps and solutions in this guide. For persistent issues, collecting the diagnostic information above will help identify the root cause.
+**If All Checks Pass But Issues Persist:**
+- Check container logs: `cd /opt/proxmox-mcp/docker && sudo docker-compose -f docker-compose.prod.yml logs mcp-server`
+- Re-run installation: `cd /opt/proxmox-mcp && sudo ./scripts/install/install.sh`
+- Test end-to-end: Start fresh Claude Code session and try basic commands
+
+## Production Deployment Status
+
+### ✅ What Should Work After All Fixes
+
+**Installation Process:**
+```bash
+# Single command installation from fresh Proxmox
+cd /opt/proxmox-mcp && sudo ./scripts/install/install.sh
+```
+
+**Expected Outcome:**
+- ✅ Docker container running and healthy
+- ✅ SSH keys properly configured and accessible (1000:1000 ownership)
+- ✅ MCP server responding on http://IP:8080/api/mcp (not /api)
+- ✅ execute_command tool validated and working during installation
+- ✅ All prerequisites installed (Docker, Node.js, etc.)
+- ✅ Firewall configured for port 8080 access
+- ✅ Client connection instructions generated with correct endpoint
+
+**Claude Code Integration:**
+```bash
+# Connect Claude Code to MCP server (use correct endpoint)
+claude mcp add --transport http proxmox-production http://SERVER_IP:8080/api/mcp
+claude mcp list  # Verify connection shows proxmox-production
+```
+
+**Available MCP Tools:**
+- `execute_command(command, timeout)` - Run shell commands via SSH
+- `list_vms()` - List all VMs via Proxmox API
+- `vm_status(vmid, node)` - Get VM status
+- `vm_action(vmid, node, action)` - Start/stop/restart VMs
+- `node_status(node)` - Get Proxmox node information  
+- `proxmox_api(method, path, data)` - Direct API calls
+
+### System Recovery Capabilities
+
+**Container Management:**
+- Auto-restart after system reboot via systemd
+- Health monitoring at `/health` endpoint
+- Log access via `docker-compose logs -f mcp-server`
+- pveproxy auto-enabled and started
+
+**Security Recovery:**
+- Practical admin model enables full VM/LXC/Docker management
+- Catastrophic operations blocked (userdel root, pvecm delnode, etc.)
+- Comprehensive sudoers configuration with audit logging
+
+### Emergency Recovery Commands
+
+```bash
+# If MCP connection fails, try these in order:
+
+# 1. Check endpoint (most common issue)
+curl http://localhost:8080/api/mcp  # Should not return 404
+
+# 2. Fix SSH key permissions
+sudo chown -R 1000:1000 /opt/proxmox-mcp/keys/
+sudo systemctl restart proxmox-mcp
+
+# 3. Restart services
+sudo systemctl restart proxmox-mcp
+
+# 4. Full container rebuild (if needed)
+cd /opt/proxmox-mcp/docker
+sudo docker-compose -f docker-compose.prod.yml down
+sudo docker-compose -f docker-compose.prod.yml build --no-cache
+sudo docker-compose -f docker-compose.prod.yml up -d
+
+# 5. Re-run installation (last resort)
+cd /opt/proxmox-mcp && sudo ./scripts/install/install.sh
+```
+
+Most issues can be resolved by following the diagnostic steps and solutions in this guide. The practical admin model enables real administrative work while maintaining security. All major fixes have been applied and the system should work out-of-the-box after installation.

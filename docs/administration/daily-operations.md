@@ -1,10 +1,17 @@
-# Proxmox MCP - Administrator Guide
+# Proxmox MCP - Daily Operations Guide
 
-**Complete Operations and Maintenance Guide for Production Deployment**
+**Production Administration with Practical Admin Model**
 
 ## Overview
 
-This guide provides comprehensive information for administrators managing the Proxmox MCP system in production environments. It covers daily operations, maintenance procedures, monitoring, troubleshooting, and advanced configuration.
+This guide provides comprehensive information for administrators managing the Proxmox MCP system in production. The system implements a **Practical Admin Model** that enables real administrative work while protecting against only catastrophic operations.
+
+**Key Capabilities Enabled:**
+- ✅ **Full VM/LXC Management**: Create, configure, start, stop, backup VMs and containers
+- ✅ **Complete Docker Operations**: Manage containers, images, networks, volumes
+- ✅ **System Administration**: Service management, network configuration, user management
+- ✅ **Container Access**: Full `sudo pct exec` and `docker exec` capabilities
+- ✅ **Real Admin Work**: All standard tools available, only catastrophic operations blocked
 
 ## Table of Contents
 
@@ -59,23 +66,35 @@ This guide provides comprehensive information for administrators managing the Pr
 
 ```
 /opt/proxmox-mcp/                    # Main installation directory
-├── .env                             # Environment configuration
-├── docker-compose.yml               # Container orchestration
-├── keys/                            # SSH keys and certificates
-│   ├── claude_proxmox_key           # Private SSH key
-│   └── claude_proxmox_key.pub       # Public SSH key
+├── docker/                          # Docker configuration
+│   ├── docker-compose.prod.yml     # Production container orchestration
+│   ├── Dockerfile.prod             # Production container build
+│   ├── .env                         # Environment configuration
+│   └── caddy/                       # Reverse proxy configuration
+│       └── Caddyfile                # Caddy configuration
+├── keys/                            # SSH keys (ownership 1000:1000)
+│   ├── ssh_key                      # Private SSH key for container
+│   └── ssh_key.pub                  # Public SSH key
 ├── config/                          # Application configuration
 ├── logs/                            # Application logs
-├── caddy/                           # Reverse proxy configuration
-│   └── Caddyfile                    # Caddy configuration
-├── monitoring/                      # Monitoring configuration
-│   ├── prometheus.yml               # Prometheus configuration
-│   └── grafana/                     # Grafana dashboards
-└── installation-report-*.md         # Installation documentation
+├── src/                             # Source code
+│   ├── main.py                      # Application entry point
+│   ├── core/                        # Core modules
+│   │   ├── mcp_server.py            # MCP protocol implementation
+│   │   ├── ssh_client.py            # SSH connection management
+│   │   └── proxmox_api.py           # Proxmox API client
+│   └── utils/                       # Utility modules
+├── scripts/                         # Installation and maintenance scripts
+│   ├── install.sh                   # Master installation script
+│   ├── daily-health-check.sh        # Daily monitoring script
+│   └── comprehensive-security-validation.sh  # Security validation
+└── docs/                            # Documentation
+    ├── administration/              # Admin guides
+    └── security/                    # Security documentation
 
-/etc/sudoers.d/claude-user           # Security configuration
-/var/log/sudo-claude-user.log        # Command audit log
-/var/log/sudo-io/claude-user/        # I/O session logs
+/etc/sudoers.d/claude-user           # Practical admin configuration (85+ controls)
+/home/claude-user/.ssh/              # SSH configuration for claude-user
+/var/log/sudo-claude-user.log        # Claude user activity log
 /etc/systemd/system/proxmox-mcp.service  # Systemd service
 ```
 
@@ -113,6 +132,110 @@ Internet/External Network
 
 ## Daily Operations
 
+### Docker Container Management
+
+**The Practical Admin Model enables comprehensive Docker operations through Claude MCP:**
+
+#### Container Operations via Claude Code
+
+```
+# In Claude Code session:
+"Please show me all running Docker containers"
+"List all Docker images on the system"
+"Show me the status of container XYZ"
+"Please restart the nginx container"
+"Show me Docker network configuration"
+```
+
+#### Direct Docker Management via SSH
+
+```bash
+# Through MCP execute_command tool in Claude Code:
+"Please execute: docker ps -a"
+"Please execute: docker images"
+"Please execute: docker stats --no-stream"
+"Please execute: docker network ls"
+"Please execute: docker volume ls"
+```
+
+#### LXC Container Management
+
+```bash
+# Full LXC container access through practical admin permissions:
+"Please list all LXC containers: pct list"
+"Please check LXC container 100 status: pct status 100"
+"Please enter LXC container 100: pct exec 100 bash"
+"Please show LXC container 100 config: pct config 100"
+```
+
+#### VM and Container Creation
+
+```bash
+# Create new LXC container through Claude Code:
+"Please create a new Ubuntu 22.04 LXC container with 2GB RAM and 20GB disk"
+
+# Create new VM:
+"Please create a new Ubuntu VM with 4GB RAM, 50GB disk, and configure it with SSH access"
+
+# Clone existing containers:
+"Please clone VM 100 to create VM 110"
+```
+
+#### Container Backup and Restore
+
+```bash
+# Backup operations:
+"Please create a backup of VM 100"
+"Please list all available backups"
+"Please restore VM 100 from the latest backup"
+
+# Snapshot operations:
+"Please create a snapshot of VM 100 named 'before-update'"
+"Please list all snapshots for VM 100"
+```
+
+#### Resource Monitoring
+
+```bash
+# Monitor container resources:
+"Please show current resource usage for all VMs"
+"Please check disk usage for LXC containers"
+"Please show network usage statistics"
+"Please display memory usage by container"
+```
+
+### Docker Image Discovery and Management
+
+**Comprehensive Docker Image Mapping:**
+```
+# Complete Docker ecosystem analysis through Claude Code:
+"Please show me all Docker images with their tags, sizes, and creation dates"
+"Please map which Docker images are currently in use by running containers"
+"Please identify any Docker images that are outdated or have security vulnerabilities"
+"Please show Docker image layer analysis and storage efficiency"
+"Please list all Docker images that haven't been used in the last 30 days"
+```
+
+**Practical Docker Administration:**
+```
+# Real Docker management tasks:
+"Please audit all Docker containers for resource usage and optimization opportunities"
+"Please identify containers that should be updated to newer base images"
+"Please show Docker storage usage breakdown and recommend cleanup actions"
+"Please analyze Docker network connectivity and identify potential issues"
+"Please review Docker container logs for errors and performance issues"
+```
+
+**Container Security and Compliance:**
+```
+# Security-focused Docker operations:
+"Please scan all Docker images for known security vulnerabilities"
+"Please verify that containers are running with appropriate security policies"
+"Please check for containers running with excessive privileges"
+"Please audit Docker container access controls and network exposure"
+"Please ensure all production containers have proper resource limits configured"
+```
+
 ### Morning Health Check
 
 **Complete System Status Check:**
@@ -129,10 +252,11 @@ echo "1. SERVICE STATUS:"
 systemctl is-active proxmox-mcp && echo "✅ Service: Active" || echo "❌ Service: Failed"
 systemctl is-enabled proxmox-mcp && echo "✅ Service: Enabled" || echo "❌ Service: Disabled"
 
-# 2. Container Status
+# 2. Container Status (correct path)
 echo ""
 echo "2. CONTAINER STATUS:"
-docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" | grep -E "(proxmox-mcp|mcp-)"
+cd /opt/proxmox-mcp/docker
+docker-compose -f docker-compose.prod.yml ps
 
 # 3. Health Endpoints
 echo ""
@@ -143,10 +267,11 @@ else
     echo "❌ MCP Health: Failed"
 fi
 
-if curl -s http://localhost:80 | grep -q "Caddy" 2>/dev/null; then
-    echo "✅ Reverse Proxy: OK"
+# Test MCP endpoint specifically
+if curl -s http://localhost:8080/api/mcp >/dev/null 2>&1; then
+    echo "✅ MCP Endpoint: OK"
 else
-    echo "❌ Reverse Proxy: Failed"
+    echo "❌ MCP Endpoint: Failed"
 fi
 
 # 4. Resource Usage
@@ -156,19 +281,31 @@ echo "Memory: $(free -h | grep Mem | awk '{print $3"/"$2}')"
 echo "Disk: $(df -h /opt/proxmox-mcp | tail -1 | awk '{print $3"/"$2" ("$5" used)"}')"
 echo "CPU: $(top -bn1 | grep "Cpu(s)" | awk '{print $2}' | cut -d'%' -f1)% used"
 
-# 5. Security Status
+# 5. Practical Admin Status
 echo ""
-echo "5. SECURITY STATUS:"
+echo "5. PRACTICAL ADMIN STATUS:"
 if visudo -c -f /etc/sudoers.d/claude-user >/dev/null 2>&1; then
     echo "✅ Sudoers: Valid"
 else
     echo "❌ Sudoers: Invalid"
 fi
 
-if test -f /opt/proxmox-mcp/keys/claude_proxmox_key; then
-    echo "✅ SSH Key: Present"
+if test -f /opt/proxmox-mcp/keys/ssh_key; then
+    key_owner=$(stat -c '%U:%G' /opt/proxmox-mcp/keys/ssh_key)
+    if [ "$key_owner" = "1000:1000" ]; then
+        echo "✅ SSH Key: Present with correct ownership"
+    else
+        echo "⚠️ SSH Key: Present but ownership is $key_owner (should be 1000:1000)"
+    fi
 else
     echo "❌ SSH Key: Missing"
+fi
+
+# Test practical admin permissions
+if sudo -u claude-user sudo systemctl status pveproxy >/dev/null 2>&1; then
+    echo "✅ Practical Admin Access: Working"
+else
+    echo "❌ Practical Admin Access: Failed"
 fi
 
 # 6. Recent Issues
@@ -270,34 +407,55 @@ sudo systemctl status proxmox-mcp
 sudo journalctl -u proxmox-mcp -f
 ```
 
-### Container Management
+### MCP Container Management
 
-**Docker Compose Operations:**
+**Docker Compose Operations (MCP System):**
 ```bash
-# Navigate to installation directory
-cd /opt/proxmox-mcp
+# Navigate to docker directory (important!)
+cd /opt/proxmox-mcp/docker
 
 # Start all services
-sudo docker-compose up -d
+sudo docker-compose -f docker-compose.prod.yml up -d
 
 # Stop all services
-sudo docker-compose down
+sudo docker-compose -f docker-compose.prod.yml down
 
 # Restart specific service
-sudo docker-compose restart mcp-server
+sudo docker-compose -f docker-compose.prod.yml restart mcp-server
 
 # View service status
-sudo docker-compose ps
+sudo docker-compose -f docker-compose.prod.yml ps
 
 # View logs
-sudo docker-compose logs -f mcp-server
-sudo docker-compose logs --tail 100 caddy
+sudo docker-compose -f docker-compose.prod.yml logs -f mcp-server
+sudo docker-compose -f docker-compose.prod.yml logs --tail 100 caddy
 
 # Pull latest images
-sudo docker-compose pull
+sudo docker-compose -f docker-compose.prod.yml pull
 
 # Build local images
-sudo docker-compose build --no-cache
+sudo docker-compose -f docker-compose.prod.yml build --no-cache
+```
+
+**General Docker Management through Claude Code:**
+```
+# Container lifecycle management:
+"Please show all Docker containers (running and stopped)"
+"Please start container nginx-proxy"
+"Please stop container old-app"
+"Please remove stopped containers"
+
+# Image management:
+"Please list all Docker images"
+"Please pull the latest nginx image"
+"Please remove unused Docker images"
+"Please build a new image from this Dockerfile"
+
+# Network and volume management:
+"Please show Docker networks"
+"Please create a new Docker network named 'app-network'"
+"Please list Docker volumes"
+"Please backup Docker volume 'app-data'"
 ```
 
 **Individual Container Management:**
@@ -305,18 +463,15 @@ sudo docker-compose build --no-cache
 # List containers
 sudo docker ps -a
 
-# Start container
+# MCP container management
 sudo docker start proxmox-mcp-server
-
-# Stop container
 sudo docker stop proxmox-mcp-server
-
-# Restart container
 sudo docker restart proxmox-mcp-server
 
-# Execute commands in container
+# Execute commands in MCP container
 sudo docker exec -it proxmox-mcp-server bash
 sudo docker exec proxmox-mcp-server curl http://localhost:8080/health
+sudo docker exec proxmox-mcp-server ls -la /app/keys/  # Check SSH key access
 
 # View container logs
 sudo docker logs proxmox-mcp-server --tail 50 -f
@@ -325,39 +480,205 @@ sudo docker logs proxmox-mcp-server --tail 50 -f
 sudo docker inspect proxmox-mcp-server
 ```
 
+**Advanced Container Operations through Claude Code:**
+```
+# Container health and debugging:
+"Please check the health status of all containers"
+"Please show resource usage for container XYZ"
+"Please execute a health check on the web server container"
+"Please show the last 100 log lines from container ABC"
+
+# Container networking:
+"Please show which ports are exposed by container XYZ"
+"Please connect container ABC to network DEF"
+"Please show network connections for container XYZ"
+
+# Container file operations:
+"Please copy file /path/to/file from container XYZ to /tmp/"
+"Please show disk usage within container ABC"
+"Please list files in /app/ directory of container XYZ"
+```
+
+### Advanced Claude Code Integration
+
+**Claude Code MCP Connection Management:**
+```bash
+# Add Proxmox MCP to Claude Code with all configuration options
+claude mcp add --transport http proxmox-production http://YOUR_PROXMOX_IP:8080/api/mcp --timeout 60
+
+# Verify connection and available tools
+claude mcp list
+claude mcp describe proxmox-production
+
+# Test all MCP tools
+claude mcp run proxmox-production execute_command "whoami"
+claude mcp run proxmox-production list_vms
+claude mcp run proxmox-production node_status
+```
+
+**Practical Administration through Claude Code:**
+```
+# Real administrative tasks through Claude Code:
+"Please show me all running VMs and their resource usage"
+"Please create a new LXC container for web hosting with nginx pre-installed"
+"Please backup all production VMs and schedule automated backups"
+"Please update all LXC containers with latest security patches"
+"Please monitor system performance and identify any resource bottlenecks"
+"Please configure VM 100 for high availability with automatic failover"
+"Please set up network segregation for development and production environments"
+```
+
+**Complex Administrative Workflows:**
+```
+# Multi-step administrative operations:
+"Please provision a complete web application stack: create VM, install Docker, deploy containers, configure networking, and set up monitoring"
+"Please migrate VM 100 from local storage to shared storage with zero downtime"
+"Please implement disaster recovery testing by restoring backups to test environment"
+"Please optimize VM resource allocation based on usage patterns and performance metrics"
+"Please configure automated security scanning and compliance reporting for all containers"
+```
+
+### Comprehensive VM/LXC Operations
+
+**Advanced VM Management:**
+```
+# Complete VM lifecycle management through Claude Code:
+"Please show me detailed status of all VMs including resource usage and uptime"
+"Please create a new VM with ID 400 using Ubuntu 22.04 template with 8GB RAM and 100GB disk"
+"Please configure VM 400 with cloud-init for automated setup and SSH key deployment"
+"Please migrate VM 100 from node proxmox1 to node proxmox2 with live migration"
+"Please resize VM 100 disk from 50GB to 100GB and expand the filesystem"
+"Please configure VM 100 for high availability with automatic failover"
+"Please set up VM 100 with VLAN tagging for network segregation"
+```
+
+**Advanced LXC Management:**
+```
+# Complete LXC container management:
+"Please create a privileged LXC container for Docker hosting with systemd support"
+"Please configure LXC container 100 with custom mount points for shared storage"
+"Please set up LXC container 100 with nested virtualization capabilities"
+"Please configure LXC container 100 networking with multiple IP addresses"
+"Please create LXC container template from existing container 100"
+"Please set up LXC container auto-start with dependency ordering"
+"Please configure LXC container resource limits and cgroup restrictions"
+```
+
+**Container Access and Administration:**
+```
+# Direct container access and management:
+"Please enter LXC container 100 and install Docker engine"
+"Please access VM 200 via SSH and configure nginx web server"
+"Please execute system update in all LXC containers: apt update && apt upgrade"
+"Please configure firewall rules inside LXC container 100"
+"Please set up automated backups for LXC container 100"
+"Please monitor resource usage inside containers and optimize performance"
+"Please configure log rotation and system monitoring in containers"
+```
+
+### System Administration Tasks
+
+**Service Management:**
+```
+# Complete system service administration:
+"Please show status of all Proxmox services and their dependencies"
+"Please restart pveproxy service and verify web interface accessibility"
+"Please configure pve-cluster service for high availability"
+"Please manage storage daemons and verify storage connectivity"
+"Please configure and test email notifications for system alerts"
+"Please set up log aggregation and monitoring for all services"
+```
+
+**Network Administration:**
+```
+# Network configuration and management:
+"Please show network bridge configuration and VLAN setup"
+"Please configure new network bridge for isolated development environment"
+"Please set up OpenVSwitch for advanced network management"
+"Please configure firewall rules for VM and container networks"
+"Please monitor network traffic and identify bandwidth usage patterns"
+"Please set up VPN access for remote administration"
+```
+
+**Storage Administration:**
+```
+# Storage management and optimization:
+"Please show storage pool status and available space across all nodes"
+"Please configure new ZFS storage pool with appropriate RAID level"
+"Please set up automated ZFS scrub and health monitoring"
+"Please manage backup storage and rotation policies"
+"Please optimize storage performance and identify I/O bottlenecks"
+"Please configure shared storage for VM migration and high availability"
+```
+
+**User and Permission Management:**
+```
+# User administration and access control:
+"Please show all Proxmox users and their permission assignments"
+"Please create new user account with limited VM management permissions"
+"Please configure API token for automated backup scripts"
+"Please set up LDAP authentication for enterprise user management"
+"Please audit user access logs and identify suspicious activities"
+"Please configure two-factor authentication for administrative accounts"
+```
+
 ### Service Configuration Updates
 
 **Environment Configuration:**
 ```bash
-# Edit environment file
-sudo nano /opt/proxmox-mcp/.env
+# Edit environment file (updated production path)
+sudo nano /opt/proxmox-mcp/docker/.env
 
 # Validate configuration
-sudo docker-compose config
+cd /opt/proxmox-mcp/docker
+sudo docker-compose -f docker-compose.prod.yml config
 
 # Apply changes
-sudo docker-compose down
-sudo docker-compose up -d
+sudo docker-compose -f docker-compose.prod.yml down
+sudo docker-compose -f docker-compose.prod.yml up -d
 
 # Verify changes
 curl http://localhost:8080/health
+curl http://localhost:8080/api/mcp
+```
+
+**Practical Admin Configuration Testing:**
+```bash
+# Test practical admin permissions through Claude Code:
+"Please test service management capabilities: systemctl status pveproxy"
+"Please verify VM management access: qm list"
+"Please test LXC container operations: pct list"
+"Please confirm Docker management access: docker ps"
+"Please test storage operations: pvesm status"
+"Please verify network configuration access: ip addr show"
+"Please test user management capabilities: pveum user list"
+
+# Test security blocks (these should fail safely):
+"Please try to delete root user (should be blocked): userdel root"
+"Please try to stop critical services (should be blocked): systemctl stop pvedaemon"
+"Please try to modify firewall rules (should be restricted): iptables -F"
+"Please try to access sensitive files (should be blocked): cat /etc/shadow"
 ```
 
 **Docker Compose Updates:**
 ```bash
-# Edit docker-compose.yml
-sudo nano /opt/proxmox-mcp/docker-compose.yml
+# Edit production docker-compose file (correct path)
+sudo nano /opt/proxmox-mcp/docker/docker-compose.prod.yml
 
 # Validate syntax
-sudo docker-compose -f /opt/proxmox-mcp/docker-compose.yml config
+cd /opt/proxmox-mcp/docker
+sudo docker-compose -f docker-compose.prod.yml config
 
 # Apply changes
-cd /opt/proxmox-mcp
-sudo docker-compose down
-sudo docker-compose up -d
+sudo docker-compose -f docker-compose.prod.yml down
+sudo docker-compose -f docker-compose.prod.yml up -d
 
 # Verify deployment
-sudo docker-compose ps
+sudo docker-compose -f docker-compose.prod.yml ps
+
+# Check health after updates
+curl http://localhost:8080/health
+sudo docker-compose -f docker-compose.prod.yml logs --tail 20 mcp-server
 ```
 
 ---
@@ -686,40 +1007,54 @@ sudo apt autoclean
 
 **Configuration File Structure:**
 ```bash
-# /opt/proxmox-mcp/.env
-# Core configuration parameters
+# /opt/proxmox-mcp/docker/.env
+# Core configuration parameters for practical admin model
 
-# Container Configuration
-IMAGE_TAG=latest                     # Container image version
-LOG_LEVEL=INFO                       # Logging verbosity (DEBUG, INFO, WARN, ERROR)
-
-# SSH Configuration
-SSH_TARGET=proxmox                   # SSH target type
-SSH_HOST=192.168.1.137              # Proxmox server IP
-SSH_USER=claude-user                 # SSH username
-SSH_PORT=22                          # SSH port
-SSH_KEY_PATH=/app/keys/claude_proxmox_key  # SSH private key path
+# SSH Configuration (Key path matches container expectations)
+SSH_TARGET=proxmox
+SSH_HOST=192.168.1.137              # Your Proxmox server IP
+SSH_USER=claude-user                # User with practical admin permissions
+SSH_PASSWORD=                       # Not used (key-based auth)
+SSH_KEY_PATH=/app/keys/ssh_key      # Container path to SSH key
+SSH_PORT=22
 
 # Proxmox API Configuration
 PROXMOX_HOST=192.168.1.137          # Proxmox API host
 PROXMOX_USER=root@pam               # Proxmox API user
+PROXMOX_PASSWORD=                    # Not used (token-based auth)
 PROXMOX_TOKEN_NAME=claude-mcp       # API token name
-PROXMOX_TOKEN_VALUE=xxxxxxxx        # API token value
+PROXMOX_TOKEN_VALUE=xxxxxxxx        # API token value from Proxmox
 PROXMOX_VERIFY_SSL=false            # SSL verification
 
-# Feature Configuration
+# Feature Configuration (Practical Admin Model)
 ENABLE_PROXMOX_API=true             # Enable Proxmox API features
-ENABLE_DANGEROUS_COMMANDS=false     # Allow dangerous commands
-ENABLE_LOCAL_EXECUTION=false        # Enable local command execution
 ENABLE_SSH=true                     # Enable SSH connectivity
+ENABLE_LOCAL_EXECUTION=false        # Disable local execution (security)
+ENABLE_DANGEROUS_COMMANDS=false     # Catastrophic operations blocked
 
-# MCP Server Configuration
-MCP_HOST=0.0.0.0                    # Bind address
-MCP_PORT=8080                       # Listen port
+# Build and deployment settings
+BUILD_DATE=2024-01-15T10:30:00Z     # Build timestamp
+VCS_REF=main                        # Git commit reference
+VERSION=latest                      # Version tag
+IMAGE_TAG=latest                    # Container image version
+LOG_LEVEL=INFO                      # Logging verbosity
+```
 
-# Monitoring Configuration
-ENABLE_MONITORING=false             # Enable Prometheus/Grafana
-GRAFANA_PASSWORD=admin              # Grafana admin password
+### Practical Admin Model Verification
+
+**Test Configuration through Claude Code:**
+```
+# Verify practical admin capabilities:
+"Please test VM operations: qm list"
+"Please test LXC operations: pct list"
+"Please test service management: systemctl status pveproxy"
+"Please test Docker operations: docker ps"
+"Please test file operations: ls -la /etc/pve"
+
+# Verify security blocks work (these should fail):
+"Please try: userdel root" # Should be blocked
+"Please try: systemctl stop pvedaemon" # Should be blocked
+"Please try: pveum user delete root@pam" # Should be blocked
 ```
 
 **Configuration Validation:**

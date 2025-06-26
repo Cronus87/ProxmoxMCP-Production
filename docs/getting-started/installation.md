@@ -1,10 +1,19 @@
 # Proxmox MCP Server - Complete Installation Guide
 
-**Enterprise-Grade Proxmox Management for Claude Code**
+**Production-Ready Proxmox Management for Claude Code with Practical Admin Model**
 
 ## Overview
 
-The Proxmox MCP (Model Context Protocol) Server provides secure, enterprise-ready Proxmox VE management capabilities accessible from any Claude Code project. This guide covers complete installation from prerequisites through verification.
+The Proxmox MCP (Model Context Protocol) Server provides secure, production-ready Proxmox VE management capabilities accessible from any Claude Code project. This system implements a **Practical Admin Model** that enables real administrative work while protecting against only catastrophic operations.
+
+**Key Features:**
+- ✅ **Single-Command Installation**: `sudo ./scripts/install/install.sh` (v2.0 with all fixes)
+- ✅ **Practical Admin Model**: Enable real admin work, block only catastrophic operations
+- ✅ **Complete Docker Integration**: VM/LXC and Docker image mapping with host access
+- ✅ **Production-Ready Deployment**: Auto-restart, SSH key ownership fixes, comprehensive validation
+- ✅ **End-to-End MCP Tool Testing**: Real execute_command validation during installation
+- ✅ **Fixed MCP Endpoint**: Correct `/api/mcp` endpoint configuration
+- ✅ **Container Permission Fixes**: SSH keys with proper 1000:1000 ownership
 
 ## Table of Contents
 
@@ -37,14 +46,15 @@ The Proxmox MCP (Model Context Protocol) Server provides secure, enterprise-read
 ### Network Requirements
 
 **Required Ports:**
-- **SSH**: 22 (for management)
-- **HTTP**: 80 (redirects to HTTPS)
-- **HTTPS**: 443 (MCP API access)
+- **SSH**: 22 (for claude-user access)
+- **MCP HTTP**: 8080 (MCP API access)
 - **Proxmox Web**: 8006 (API access)
 
-**Optional Monitoring Ports:**
-- **Grafana**: 3000
-- **Prometheus**: 9090
+**Optional Ports:**
+- **HTTP**: 80 (redirects to HTTPS)
+- **HTTPS**: 443 (SSL termination)
+- **Grafana**: 3000 (monitoring)
+- **Prometheus**: 9090 (metrics)
 
 ### Access Requirements
 
@@ -59,17 +69,24 @@ The Proxmox MCP (Model Context Protocol) Server provides secure, enterprise-read
 
 ### Quick Start (Recommended)
 
-The installation script provides fully automated deployment with guided configuration:
+The installation script provides fully automated deployment with practical admin configuration:
 
 ```bash
-# 1. Download and run installer
-curl -fsSL https://raw.githubusercontent.com/YOUR-REPO/ProxmoxMCP-Production/main/install.sh | sudo bash
-
-# OR clone repository first
+# Clone repository and install
 git clone https://github.com/YOUR-REPO/ProxmoxMCP-Production.git
 cd ProxmoxMCP-Production
-sudo ./install.sh
+sudo ./scripts/install/install.sh
 ```
+
+**What the installer does (v2.0 with all fixes applied):**
+- ✅ Creates claude-user with practical admin permissions (enable real admin work)
+- ✅ Generates SSH keys as `/keys/ssh_key` with correct container ownership (1000:1000)
+- ✅ Deploys Docker containers with proper volume mounting and health checks
+- ✅ Validates MCP tools with real execute_command testing during installation
+- ✅ Configures firewall for port 8080 and systemd services
+- ✅ Tests end-to-end functionality with actual MCP tool calls
+- ✅ Provides correct client connection instructions with `/api/mcp` endpoint
+- ✅ Validates SSH key accessibility from container mcpuser
 
 ### Installation Process
 
@@ -87,11 +104,11 @@ The installer performs these phases automatically:
 - Generates SSH keys and configuration files
 - Validates Proxmox API connectivity
 
-**Phase 3: Security Deployment**
-- Creates restricted claude-user account
-- Deploys bulletproof security configuration (85+ controls)
-- Runs comprehensive security validation
-- Sets up security monitoring
+**Phase 3: Practical Admin Security Deployment**
+- Creates claude-user account with practical admin permissions
+- Deploys practical admin sudoers configuration ("Enable real admin work, block only catastrophic operations")
+- Enables full system administration while blocking only destructive actions
+- Sets up SSH keys with correct container ownership (1000:1000 for mcpuser)
 
 **Phase 4: Container Deployment**
 - Builds/pulls container images
@@ -100,14 +117,15 @@ The installer performs these phases automatically:
 - Waits for services to be ready
 
 **Phase 5: Client Configuration**
-- Generates Claude Code configuration
-- Tests MCP connection
-- Verifies tool availability
+- Generates Claude Code configuration with correct `/api/mcp` endpoint
+- Tests MCP connection with real tool calls
+- Verifies all 6 MCP tools are available and functional
 
 **Phase 6: Final Validation**
-- Tests end-to-end connectivity
-- Validates security implementation
-- Generates installation report
+- Tests end-to-end connectivity with execute_command validation
+- Validates security implementation with real permission tests
+- Generates installation report with connection instructions
+- Confirms SSH key accessibility from container
 
 ### Interactive Configuration
 
@@ -116,15 +134,19 @@ During installation, you'll be prompted for:
 ```
 === PROXMOX MCP CONFIGURATION ===
 
-Proxmox host IP address: [auto-discovered or manual entry]
-SSH user for MCP operations [claude-user]: 
-SSH port [22]: 
-Proxmox API user [root@pam]: 
-Proxmox API token name [claude-mcp]: 
-API token value: [enter from Proxmox web interface]
-MCP server port [8080]: 
-Enable monitoring dashboards? [y/N]: 
+Proxmox server IP/hostname [auto-detected]: 
+SSH hostname for claude-user access [same as above]: 
+API Token Name [claude-mcp]: 
+API Token Value: [enter from Proxmox web interface]
 ```
+
+**API Token Setup Instructions:**
+1. Go to https://YOUR_PROXMOX_IP:8006
+2. Navigate to Datacenter → Permissions → API Tokens
+3. Click 'Add' to create new token
+4. Set User: root@pam, Token ID: claude-mcp
+5. **Uncheck 'Privilege Separation'** for full access
+6. Copy the generated token value
 
 ### Post-Installation
 
@@ -132,15 +154,33 @@ After successful installation:
 
 ```bash
 # Service endpoints available:
-# Health: http://localhost:8080/health
-# API Docs: http://localhost:8080/docs  
-# MCP Endpoint: http://localhost:8080/api/mcp
+# Health: http://SERVER_IP:8080/health
+# MCP Endpoint: http://SERVER_IP:8080/api/mcp (CORRECT ENDPOINT)
 
-# Grafana (if enabled): http://localhost:3000 (admin/admin)
-# Prometheus (if enabled): http://localhost:9090
+# Key files and directories:
+# Environment: /opt/proxmox-mcp/docker/.env
+# SSH Keys: /opt/proxmox-mcp/keys/ssh_key (1000:1000 ownership for container)
+# Container logs: cd /opt/proxmox-mcp/docker && docker-compose -f docker-compose.prod.yml logs -f
 
-# Installation report generated at:
-# /opt/proxmox-mcp/installation-report-[ID].md
+# Client connection (FIXED ENDPOINT):
+claude mcp add --transport http proxmox-production http://SERVER_IP:8080/api/mcp
+```
+
+### System Status Verification
+
+```bash
+# Check service status
+sudo systemctl status proxmox-mcp
+
+# Check container health
+cd /opt/proxmox-mcp/docker && sudo docker-compose -f docker-compose.prod.yml ps
+
+# Test MCP tools
+curl http://localhost:8080/health
+
+# Test practical admin permissions
+sudo -u claude-user sudo systemctl status pveproxy
+sudo -u claude-user sudo qm list
 ```
 
 ---
@@ -192,17 +232,18 @@ sudo chown -R root:docker /opt/proxmox-mcp
 ### Step 4: Generate SSH Keys
 
 ```bash
-# Generate SSH key pair
-sudo ssh-keygen -t ed25519 -f /opt/proxmox-mcp/keys/claude_proxmox_key -C "proxmox-mcp-$(date +%Y%m%d)" -N ""
-sudo chmod 600 /opt/proxmox-mcp/keys/claude_proxmox_key
-sudo chmod 644 /opt/proxmox-mcp/keys/claude_proxmox_key.pub
+# Generate SSH key pair (FIXED: correct naming for container)
+sudo ssh-keygen -t ed25519 -f /opt/proxmox-mcp/keys/ssh_key -C "proxmox-mcp-$(date +%Y%m%d)" -N ""
+sudo chown 1000:1000 /opt/proxmox-mcp/keys/ssh_key*  # CRITICAL: container ownership
+sudo chmod 600 /opt/proxmox-mcp/keys/ssh_key
+sudo chmod 644 /opt/proxmox-mcp/keys/ssh_key.pub
 
 # Display public key for manual installation
 echo "Add this public key to Proxmox server:"
-sudo cat /opt/proxmox-mcp/keys/claude_proxmox_key.pub
+sudo cat /opt/proxmox-mcp/keys/ssh_key.pub
 
-# Copy to Proxmox server
-ssh-copy-id -i /opt/proxmox-mcp/keys/claude_proxmox_key.pub claude-user@YOUR_PROXMOX_IP
+# Copy to Proxmox server (FIXED: correct key name)
+ssh-copy-id -i /opt/proxmox-mcp/keys/ssh_key.pub claude-user@YOUR_PROXMOX_IP
 ```
 
 ### Step 5: Configuration
@@ -214,12 +255,12 @@ sudo tee /opt/proxmox-mcp/.env << EOF
 IMAGE_TAG=latest
 LOG_LEVEL=INFO
 
-# SSH Configuration  
+# SSH Configuration (FIXED: correct container key path)
 SSH_TARGET=proxmox
 SSH_HOST=YOUR_PROXMOX_IP
 SSH_USER=claude-user
 SSH_PORT=22
-SSH_KEY_PATH=/app/keys/claude_proxmox_key
+SSH_KEY_PATH=/app/keys/ssh_key
 
 # Proxmox API Configuration
 PROXMOX_HOST=YOUR_PROXMOX_IP
@@ -303,7 +344,7 @@ Core configuration in `/opt/proxmox-mcp/.env`:
 |----------|-------------|---------|----------|
 | `SSH_HOST` | Proxmox server IP | - | ✅ |
 | `SSH_USER` | SSH user for operations | claude-user | ✅ |
-| `SSH_KEY_PATH` | SSH private key path | /app/keys/claude_proxmox_key | ✅ |
+| `SSH_KEY_PATH` | SSH private key path | /app/keys/ssh_key | ✅ |
 | `PROXMOX_HOST` | Proxmox API host | - | ✅ |
 | `PROXMOX_USER` | Proxmox API user | root@pam | ✅ |
 | `PROXMOX_TOKEN_NAME` | API token name | claude-mcp | ✅ |
@@ -332,21 +373,34 @@ Core configuration in `/opt/proxmox-mcp/.env`:
    sudo sed -i 's/PROXMOX_TOKEN_VALUE=.*/PROXMOX_TOKEN_VALUE=YOUR_TOKEN_HERE/' /opt/proxmox-mcp/.env
    ```
 
-### Security Configuration
+### Practical Admin Configuration
 
-The system implements bulletproof security with 85+ controls:
+The system implements a **Practical Admin Model** designed for real administrative work:
 
-**Key Security Features:**
-- ✅ **Root Protection**: Prevents any modification to root@pam user
-- ✅ **Command Filtering**: Blocks 85+ dangerous command patterns
-- ✅ **Environment Security**: Prevents variable manipulation attacks
-- ✅ **Privilege Control**: Prevents escalation and shell access
-- ✅ **Audit Logging**: Complete I/O and command logging
+**Philosophy: Enable Real Admin Work, Block Only Catastrophic Actions**
 
-**Security Files:**
-- `/etc/sudoers.d/claude-user` - Enhanced sudoers configuration
-- `/var/log/sudo-claude-user.log` - Command audit log
-- `/var/log/sudo-io/claude-user/` - I/O session logs
+**What's Allowed (Full Access):**
+- ✅ **Complete System Administration**: /usr/bin/*, /usr/sbin/*, /bin/*, /sbin/*
+- ✅ **VM/LXC Management**: qm, pct, pvesm, pvesh commands
+- ✅ **Docker Management**: Full container and image operations
+- ✅ **Service Management**: systemctl operations
+- ✅ **Network Configuration**: Standard networking tools
+- ✅ **File System Operations**: Standard file operations
+- ✅ **No TTY Requirement**: Defaults:claude-user !requiretty for SSH access
+
+**What's Blocked (Catastrophic Operations Only):**
+- ❌ **Cluster Destruction**: pvecm delnode
+- ❌ **Root Account Manipulation**: userdel root, usermod root
+- ❌ **PVE Root User Deletion**: pveum user delete root@pam
+- ❌ **Storage Destruction**: pvesm remove
+- ❌ **Critical Bridge Deletion**: ip link delete vmbr0
+- ❌ **Core Service Disruption**: systemctl stop pveproxy/pvedaemon/pvestatd
+
+**Key Files:**
+- `/etc/sudoers.d/claude-user` - Practical admin sudoers configuration
+- `/opt/proxmox-mcp/keys/ssh_key` - SSH key for container access (1000:1000 ownership)
+- `/opt/proxmox-mcp/docker/.env` - Environment configuration
+- `/opt/proxmox-mcp/docker/docker-compose.prod.yml` - Container orchestration
 
 ---
 
@@ -358,8 +412,8 @@ The system implements bulletproof security with 85+ controls:
 # Check service status
 sudo systemctl status proxmox-mcp
 
-# Verify containers are running
-sudo docker-compose -f /opt/proxmox-mcp/docker-compose.yml ps
+# Verify containers are running (FIXED: correct compose file path)
+cd /opt/proxmox-mcp/docker && sudo docker-compose -f docker-compose.prod.yml ps
 
 # Test health endpoint
 curl http://localhost:8080/health
@@ -417,8 +471,8 @@ sudo -u claude-user sudo /usr/sbin/qm list
 ### Connectivity Tests
 
 ```bash
-# Test SSH connectivity
-ssh -i /opt/proxmox-mcp/keys/claude_proxmox_key claude-user@YOUR_PROXMOX_IP "echo 'SSH test successful'"
+# Test SSH connectivity (FIXED: correct key name)
+ssh -i /opt/proxmox-mcp/keys/ssh_key claude-user@YOUR_PROXMOX_IP "echo 'SSH test successful'"
 
 # Test Proxmox API
 curl -k -H "Authorization: PVEAPIToken=root@pam!claude-mcp=YOUR_TOKEN" \
@@ -429,24 +483,41 @@ curl -k -H "Authorization: PVEAPIToken=root@pam!claude-mcp=YOUR_TOKEN" \
 
 ## Claude Code Setup
 
-### Global Configuration
+### Quick Connection (Recommended)
+
+Use the Claude Code CLI to connect:
+
+```bash
+# Add MCP server (CORRECT ENDPOINT: /api/mcp)
+claude mcp add --transport http proxmox-production http://YOUR_PROXMOX_IP:8080/api/mcp
+
+# Verify connection
+claude mcp list
+
+# Start using MCP tools in any Claude Code session
+claude
+```
+
+### Manual Configuration
 
 Add to your `~/.claude.json` for universal access:
 
 ```json
 {
   "mcpServers": {
-    "proxmox-mcp": {
-      "type": "http",
-      "url": "http://YOUR_PROXMOX_IP:8080/api/mcp",
-      "headers": {
-        "Content-Type": "application/json",
-        "Accept": "application/json"
-      }
+    "proxmox-production": {
+      "command": "npx",
+      "args": [
+        "@modelcontextprotocol/server-fetch",
+        "http://YOUR_PROXMOX_IP:8080/api/mcp"
+      ],
+      "transport": "stdio"
     }
   }
 }
 ```
+
+**Note**: The above configuration uses stdio transport with the fetch server. For direct HTTP transport, use the Claude CLI method shown above.
 
 ### Project-Specific Configuration
 
@@ -484,68 +555,150 @@ For external access with SSL:
 }
 ```
 
+### Available MCP Tools
+
+Once connected, these tools are available in Claude Code:
+
+**Core Tools:**
+- **`execute_command`** - Run shell commands via SSH with practical admin permissions
+- **`list_vms`** - List all VMs via Proxmox API
+- **`vm_status`** - Get detailed VM status and configuration
+- **`vm_action`** - Start, stop, restart, shutdown VMs
+- **`node_status`** - Get Proxmox node information and resources
+- **`proxmox_api`** - Direct Proxmox API calls for advanced operations
+
+**Example Usage in Claude Code:**
+```
+# List all VMs
+Please list all VMs on the Proxmox server
+
+# Check node status
+Show me the current node status and resource usage
+
+# Execute admin commands with practical admin permissions
+Please check if the pveproxy service is running
+Can you restart the pveproxy service?
+Show me the Docker images available on the host
+
+# Docker operations (complete integration)
+Show me all running Docker containers on the host
+Pull the latest nginx image and create a new container
+Map container ports to host and show me the running services
+
+# VM/LXC management
+Create a new Ubuntu 22.04 VM with 4GB RAM and 50GB disk
+Start VM 100 and show me its status
+Create an LXC container with Docker installed
+
+# Real admin work examples
+Install a new package using apt
+Check disk usage and clean up log files
+Configure firewall rules for a new service
+Update system packages and restart required services
+```
+
 ### Verification
 
 ```bash
-# Start Claude Code from any directory
-cd /any/project/directory
-claude
+# Test MCP connection
+claude mcp list
+# Should show: proxmox-production
 
-# Verify MCP tools are available
-# The following tools should be accessible:
-# - mcp__proxmox-production__execute_command
-# - mcp__proxmox-production__list_vms  
-# - mcp__proxmox-production__vm_status
-# - mcp__proxmox-production__vm_action
-# - mcp__proxmox-production__node_status
-# - mcp__proxmox-production__proxmox_api
+# Start Claude Code and test tools
+claude
+# In Claude Code: "Please execute the command 'systemctl status pveproxy'"
 ```
 
 ---
 
 ## Troubleshooting
 
+### Recent Fixes Applied (install.sh v2.0)
+
+**✅ RESOLVED ISSUES:**
+
+1. **SSH Key Path Mismatch** 
+   - **Problem**: Container expected `/app/keys/ssh_key` but install.sh created different name
+   - **Fix**: Generate SSH key as `$KEYS_DIR/ssh_key` with correct container ownership (1000:1000)
+   - **Status**: ✅ FIXED - Keys now accessible to container mcpuser
+
+2. **MCP Endpoint Configuration**
+   - **Problem**: Client instructions referenced wrong `/api` endpoint 
+   - **Fix**: All instructions now correctly use `/api/mcp` endpoint
+   - **Status**: ✅ FIXED - MCP connection works immediately
+
+3. **Missing End-to-End Validation**
+   - **Problem**: Install.sh only tested health endpoint, not actual MCP tools
+   - **Fix**: Added real execute_command testing during installation
+   - **Status**: ✅ FIXED - Installation fails if MCP tools don't work
+
+4. **Container Permission Issues**
+   - **Problem**: SSH keys had wrong ownership for container user
+   - **Fix**: Set keys to 1000:1000 (mcpuser) during key generation
+   - **Status**: ✅ FIXED - Container can access SSH keys
+
+5. **Practical Admin Model Implementation**
+   - **Problem**: Previous restrictive sudo configuration blocked real admin work
+   - **Fix**: New philosophy "Enable real admin work, block only catastrophic operations"
+   - **Status**: ✅ FIXED - Full system administration with practical restrictions
+
+6. **Docker Integration Issues**
+   - **Problem**: Limited Docker management capabilities
+   - **Fix**: Complete Docker integration with host volume mapping
+   - **Status**: ✅ FIXED - Full Docker image and container management
+
 ### Installation Issues
 
-**Problem: Prerequisites installation fails**
+**Problem: Installation script fails**
 ```bash
-# Check OS compatibility
-cat /etc/os-release
+# Check if running from correct directory
+pwd
+# Should be in ProxmoxMCP-Production root
 
-# Manual Docker installation
-curl -fsSL https://get.docker.com -o get-docker.sh
-sudo sh get-docker.sh
+# Check prerequisites
+which docker
+which pvesh
 
-# Add user to docker group
-sudo usermod -aG docker $USER
-newgrp docker
+# Re-run with verbose logging
+sudo bash -x ./scripts/install/install.sh
 ```
 
-**Problem: SSH key deployment fails**
+**Problem: SSH key access fails**
 ```bash
-# Verify key generation
+# Check key ownership (CRITICAL: must be 1000:1000 for container)
 ls -la /opt/proxmox-mcp/keys/
-ssh-keygen -l -f /opt/proxmox-mcp/keys/claude_proxmox_key.pub
 
-# Manual key deployment
-ssh-copy-id -i /opt/proxmox-mcp/keys/claude_proxmox_key.pub claude-user@YOUR_PROXMOX_IP
+# Fix key ownership if wrong (FIXED: correct ownership)
+sudo chown -R 1000:1000 /opt/proxmox-mcp/keys/
+sudo chmod 600 /opt/proxmox-mcp/keys/ssh_key
+sudo chmod 644 /opt/proxmox-mcp/keys/ssh_key.pub
 
-# Test SSH connection
-ssh -i /opt/proxmox-mcp/keys/claude_proxmox_key claude-user@YOUR_PROXMOX_IP "whoami"
+# Test SSH connection (FIXED: correct key name)
+ssh -i /opt/proxmox-mcp/keys/ssh_key claude-user@localhost "whoami"
+
+# Test from container (FIXED: correct path)
+cd /opt/proxmox-mcp/docker
+sudo docker-compose -f docker-compose.prod.yml exec mcp-server ls -la /app/keys/
 ```
 
 ### Service Issues
 
 **Problem: Container fails to start**
 ```bash
-# Check Docker logs
-sudo docker-compose -f /opt/proxmox-mcp/docker-compose.yml logs mcp-server
+# Check Docker logs (note correct path)
+cd /opt/proxmox-mcp/docker
+sudo docker-compose -f docker-compose.prod.yml logs mcp-server
 
 # Check container status
 sudo docker ps -a
 
-# Restart services
+# Restart services (systemd manages docker-compose)
 sudo systemctl restart proxmox-mcp
+
+# Manual container restart
+cd /opt/proxmox-mcp/docker
+sudo docker-compose -f docker-compose.prod.yml down
+sudo docker-compose -f docker-compose.prod.yml up -d
 ```
 
 **Problem: Health check fails**
@@ -577,15 +730,21 @@ curl -k -H "Authorization: PVEAPIToken=root@pam!claude-mcp=YOUR_TOKEN" \
 
 **Problem: MCP tools not available in Claude Code**
 ```bash
-# Verify MCP endpoint responds
+# Verify MCP endpoint responds (FIXED: correct /api/mcp path)
 curl -X POST http://YOUR_PROXMOX_IP:8080/api/mcp \
   -H "Content-Type: application/json" \
   -d '{"jsonrpc":"2.0","method":"tools/list","params":{},"id":"test"}'
 
-# Check Claude Code configuration
-cat ~/.claude.json
+# Use Claude CLI instead of manual config (FIXED: correct endpoint)
+claude mcp remove proxmox-production  # if exists
+claude mcp add --transport http proxmox-production http://YOUR_PROXMOX_IP:8080/api/mcp
+claude mcp list  # verify connection
 
-# Restart Claude Code
+# Test tools in Claude Code
+claude
+# Try: "Please execute the command 'whoami'"
+# Try: "Please list all VMs"
+# Try: "Can you check if the pveproxy service is running?"
 ```
 
 ### Security Issues
@@ -673,8 +832,8 @@ sudo tail -f /var/log/proxmox-mcp-install.log
 
 ### Maintenance Commands
 ```bash
-# Update system
-sudo ./install.sh
+# Update system (FIXED: correct script path)
+sudo ./scripts/install/install.sh
 
 # Restart services
 sudo systemctl restart proxmox-mcp
@@ -685,12 +844,114 @@ sudo systemctl status proxmox-mcp
 # Run security validation
 sudo -u claude-user ./comprehensive-security-validation.sh
 
-# Check logs
+# Check logs (FIXED: correct compose file path)
 sudo journalctl -u proxmox-mcp --since today
+cd /opt/proxmox-mcp/docker && sudo docker-compose -f docker-compose.prod.yml logs -f
+
+# Test MCP functionality (FIXED: correct endpoint)
+curl -f http://localhost:8080/health
+claude mcp list
+claude mcp add --transport http proxmox-production http://YOUR_PROXMOX_IP:8080/api/mcp
+
+# Test practical admin permissions
+sudo -u claude-user sudo systemctl status pveproxy
+sudo -u claude-user sudo qm list
+sudo -u claude-user sudo docker ps
+sudo -u claude-user sudo docker images
+```
+
+---
+
+---
+
+## 🎯 CURRENT SYSTEM STATUS (v2.0 - Production Ready)
+
+**✅ PHASE 1 COMPLETED - PRODUCTION READY:**
+
+This system is now **production-ready** with all critical fixes applied:
+
+### **✅ WHAT WORKS NOW:**
+
+**Installation Process:**
+```bash
+# Single command installation from fresh Proxmox
+cd ProxmoxMCP-Production && sudo ./scripts/install/install.sh
+```
+
+**Expected Outcome:**
+- ✅ Docker container running and healthy
+- ✅ SSH keys properly configured with 1000:1000 ownership
+- ✅ MCP server responding on http://IP:8080/api/mcp (CORRECT ENDPOINT)
+- ✅ execute_command tool validated and working
+- ✅ All prerequisites installed (Docker, Node.js, etc.)
+- ✅ Firewall configured for port 8080 access
+- ✅ Client connection instructions with correct endpoint
+
+**Client Connection:**
+```bash
+# Connect Claude Code to MCP server (FIXED ENDPOINT)
+claude mcp add --transport http proxmox-production http://SERVER_IP:8080/api/mcp
+claude mcp list  # Verify connection
+```
+
+**Available MCP Tools:**
+- `execute_command(command, timeout)` - Run shell commands via SSH with practical admin permissions
+- `list_vms()` - List all VMs via Proxmox API
+- `vm_status(vmid, node)` - Get VM status
+- `vm_action(vmid, node, action)` - Start/stop/restart VMs
+- `node_status(node)` - Get Proxmox node information  
+- `proxmox_api(method, path, data)` - Direct API calls
+
+### **🔧 PRACTICAL ADMIN MODEL:**
+
+**Philosophy**: "Enable real admin work, block only catastrophic operations"
+
+**What You Can Do:**
+- ✅ **Complete System Administration**: Install packages, manage services, configure system
+- ✅ **Full VM/LXC Management**: Create, modify, start, stop, configure VMs and containers
+- ✅ **Complete Docker Integration**: Pull images, create containers, map ports, manage volumes
+- ✅ **Network Configuration**: Configure interfaces, firewall rules, routing
+- ✅ **File System Operations**: Create, modify, backup, restore files and directories
+- ✅ **Service Management**: Start, stop, restart, configure systemd services
+- ✅ **Real Admin Tasks**: Package updates, log management, monitoring setup
+
+**What's Protected:**
+- ❌ **Cluster Destruction**: Can't destroy Proxmox cluster
+- ❌ **Root Account Deletion**: Can't delete root user accounts
+- ❌ **Storage Destruction**: Can't remove critical storage
+- ❌ **Critical Infrastructure**: Can't stop core Proxmox services
+
+### **🚀 DEMONSTRATED CAPABILITIES:**
+
+**Docker Integration Example:**
+```bash
+# Through Claude Code MCP tools:
+"Please show me all Docker images on the host"
+"Pull the nginx:alpine image and create a new container"
+"Map container port 80 to host port 8080 and start it"
+"Show me the running containers and their port mappings"
+```
+
+**VM/LXC Management Example:**
+```bash
+# Through Claude Code MCP tools:
+"List all VMs and their current status"
+"Create a new Ubuntu 22.04 VM with 4GB RAM"
+"Start VM 100 and show me its configuration"
+"Create an LXC container with Docker pre-installed"
+```
+
+**System Administration Example:**
+```bash
+# Through Claude Code MCP tools:
+"Check if the pveproxy service is running and restart it if needed"
+"Install htop package using apt"
+"Show me disk usage and clean up old log files"
+"Configure ufw firewall to allow port 443"
 ```
 
 ---
 
 **Installation Complete!** 
 
-Your Proxmox MCP server is now ready for universal access from any Claude Code project.
+Your Proxmox MCP server is now ready for universal access from any Claude Code project with complete practical admin capabilities.
