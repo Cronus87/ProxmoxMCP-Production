@@ -253,9 +253,23 @@ setup_claude_user() {
     
     # Add claude-user to docker and www-data groups (www-data needed for PVE access)
     usermod -a -G docker,www-data claude-user 2>/dev/null || true
-    log_success "claude-user added to docker and www-data groups"
     
-    # Deploy enhanced sudoers configuration
+    # Validate group membership
+    if id claude-user | grep -q "www-data"; then
+        log_success "claude-user added to www-data group (PVE access enabled)"
+    else
+        log_error "Failed to add claude-user to www-data group"
+        exit 1
+    fi
+    
+    if id claude-user | grep -q "docker"; then
+        log_success "claude-user added to docker group"
+    else
+        log_error "Failed to add claude-user to docker group"
+        exit 1
+    fi
+    
+    # Deploy enhanced sudoers configuration with forced replacement
     if [ -f "claude-user-security-enhanced-sudoers" ]; then
         log_info "Deploying enhanced security configuration..."
         
@@ -264,9 +278,13 @@ setup_claude_user() {
             cp "/etc/sudoers.d/claude-user" "/etc/sudoers.d/claude-user.backup.$(date +%s)" 2>/dev/null || true
         fi
         
-        # Deploy enhanced security
+        # Force removal of old sudoers file to ensure clean deployment
+        rm -f "/etc/sudoers.d/claude-user"
+        
+        # Deploy enhanced security with force
         cp "claude-user-security-enhanced-sudoers" "/etc/sudoers.d/claude-user"
         chmod 440 "/etc/sudoers.d/claude-user"
+        chown root:root "/etc/sudoers.d/claude-user"
         
         # Validate sudoers syntax
         if visudo -c -f "/etc/sudoers.d/claude-user"; then
@@ -275,8 +293,27 @@ setup_claude_user() {
             log_error "Sudoers configuration has syntax errors"
             exit 1
         fi
+        
+        # Validate that requiretty is disabled (critical for VM/LXC creation)
+        if grep -q "!requiretty" "/etc/sudoers.d/claude-user"; then
+            log_success "TTY requirement disabled for SSH sudo access"
+        else
+            log_error "Failed to disable requiretty - VM/LXC creation will be blocked"
+            exit 1
+        fi
+        
+        # Validate that VM creation commands are allowed
+        if grep -q "qm create" "/etc/sudoers.d/claude-user"; then
+            log_success "VM/LXC creation permissions verified"
+        else
+            log_error "VM/LXC creation permissions missing from sudoers"
+            exit 1
+        fi
+        
     else
-        log_warning "Enhanced security file not found, using basic configuration"
+        log_error "Enhanced security file not found: claude-user-security-enhanced-sudoers"
+        log_error "Cannot deploy VM/LXC creation capabilities"
+        exit 1
     fi
 }
 
@@ -431,11 +468,27 @@ configure_security() {
     
     log_success "File permissions configured"
     
-    # Test sudo access for claude-user
-    if sudo -u claude-user pvesh --version >/dev/null 2>&1; then
-        log_success "claude-user sudo access verified"
+    # Test basic sudo access for claude-user
+    if sudo -u claude-user sudo whoami >/dev/null 2>&1; then
+        log_success "claude-user basic sudo access verified"
     else
-        log_warning "claude-user sudo access test failed - check sudoers configuration"
+        log_error "claude-user basic sudo access failed - sudoers configuration issue"
+        exit 1
+    fi
+    
+    # Test VM creation permissions specifically
+    if sudo -u claude-user sudo -l | grep -q "qm create"; then
+        log_success "VM creation permissions verified for claude-user"
+    else
+        log_error "VM creation permissions missing for claude-user"
+        exit 1
+    fi
+    
+    # Test PVE access (www-data group membership)
+    if sudo -u claude-user ls /etc/pve >/dev/null 2>&1; then
+        log_success "PVE configuration access verified for claude-user"
+    else
+        log_warning "PVE configuration access limited - some API operations may fail"
     fi
 }
 
