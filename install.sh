@@ -251,9 +251,9 @@ setup_claude_user() {
         log_success "SSH public key deployed to authorized_keys"
     fi
     
-    # Add claude-user to docker group
-    usermod -a -G docker claude-user 2>/dev/null || true
-    log_success "claude-user added to docker group"
+    # Add claude-user to docker and www-data groups (www-data needed for PVE access)
+    usermod -a -G docker,www-data claude-user 2>/dev/null || true
+    log_success "claude-user added to docker and www-data groups"
     
     # Deploy enhanced sudoers configuration
     if [ -f "claude-user-security-enhanced-sudoers" ]; then

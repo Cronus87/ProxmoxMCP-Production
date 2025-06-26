@@ -44,7 +44,10 @@
       "Bash(\"/mnt/d/VS Code Projects/ProxmoxMCP-Production/emergency-restart-simple.sh\")",
       "Bash(git ls-tree:*)",
       "Bash(git push:*)",
-      "Bash(docker compose:*)"
+      "Bash(docker compose:*)",
+      "mcp__proxmox-production__node_status",
+      "Bash(sudo systemctl status:*)",
+      "mcp__proxmox-production__proxmox_api"
     ],
     "deny": []
   }
