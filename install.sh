@@ -199,7 +199,7 @@ setup_claude_user() {
         # Generate SSH key pair
         ssh-keygen -t rsa -b 4096 -f "$ssh_key_path" -N "" -C "claude-user@proxmox-mcp"
         
-        # Set proper permissions
+        # Set proper permissions (will be changed to root:root later for container access)
         chown claude-user:claude-user "$ssh_key_path" "$ssh_key_path.pub"
         chmod 600 "$ssh_key_path"
         chmod 644 "$ssh_key_path.pub"
@@ -389,7 +389,7 @@ configure_security() {
     
     # Set proper ownership on all MCP files
     chown -R root:root "$SCRIPT_DIR"
-    chown -R claude-user:claude-user "$KEYS_DIR"
+    chown -R root:root "$KEYS_DIR"  # Container runs as root, needs root access
     
     # Set proper permissions
     chmod 755 logs config
