@@ -23,7 +23,9 @@
       "Bash(source:*)",
       "Bash(pip install:*)",
       "Bash(nc:*)",
-      "Bash(nmap:*)"
+      "Bash(nmap:*)",
+      "WebFetch(domain:docs.anthropic.com)",
+      "Bash(curl:*)"
     ],
     "deny": []
   }

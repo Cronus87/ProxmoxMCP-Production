@@ -86,11 +86,8 @@ async def execute_command(command: str) -> dict:
             raise HTTPException(status_code=500, detail="Proxmox backend not initialized")
         
         # Use the existing proxmox_backend execute_command method
-        result = await proxmox_backend.call_tool(
-            "execute_command",
-            {"command": command}
-        )
-        return result
+        result = await proxmox_backend._execute_command(command, 30)
+        return {"output": result, "command": command, "status": "success"}
     except Exception as e:
         logger.error(f"Command execution error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -102,8 +99,8 @@ async def list_vms() -> dict:
         if not proxmox_backend:
             raise HTTPException(status_code=500, detail="Proxmox backend not initialized")
         
-        result = await proxmox_backend.call_tool("list_vms", {})
-        return result
+        result = await proxmox_backend._list_vms()
+        return {"vms": result, "status": "success"}
     except Exception as e:
         logger.error(f"List VMs error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -115,11 +112,8 @@ async def vm_status(vm_id: str, node: str = "") -> dict:
         if not proxmox_backend:
             raise HTTPException(status_code=500, detail="Proxmox backend not initialized")
         
-        result = await proxmox_backend.call_tool(
-            "vm_status", 
-            {"vm_id": vm_id, "node": node}
-        )
-        return result
+        result = await proxmox_backend._vm_status(vm_id, node)
+        return {"status": result, "vm_id": vm_id, "node": node}
     except Exception as e:
         logger.error(f"VM status error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -131,11 +125,8 @@ async def vm_action(vm_id: str, action: str, node: str = "") -> dict:
         if not proxmox_backend:
             raise HTTPException(status_code=500, detail="Proxmox backend not initialized")
         
-        result = await proxmox_backend.call_tool(
-            "vm_action", 
-            {"vm_id": vm_id, "action": action, "node": node}
-        )
-        return result
+        result = await proxmox_backend._vm_action(vm_id, node, action)
+        return {"result": result, "vm_id": vm_id, "action": action, "node": node}
     except Exception as e:
         logger.error(f"VM action error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -147,11 +138,8 @@ async def node_status(node: str = "") -> dict:
         if not proxmox_backend:
             raise HTTPException(status_code=500, detail="Proxmox backend not initialized")
         
-        result = await proxmox_backend.call_tool(
-            "node_status", 
-            {"node": node}
-        )
-        return result
+        result = await proxmox_backend._node_status(node)
+        return {"nodes": result, "requested_node": node}
     except Exception as e:
         logger.error(f"Node status error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -163,11 +151,8 @@ async def proxmox_api(endpoint: str, method: str = "GET", data: dict = None) -> 
         if not proxmox_backend:
             raise HTTPException(status_code=500, detail="Proxmox backend not initialized")
         
-        result = await proxmox_backend.call_tool(
-            "proxmox_api", 
-            {"endpoint": endpoint, "method": method, "data": data or {}}
-        )
-        return result
+        result = await proxmox_backend._proxmox_api_call(method, endpoint, data or {})
+        return {"result": result, "endpoint": endpoint, "method": method}
     except Exception as e:
         logger.error(f"Proxmox API error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
