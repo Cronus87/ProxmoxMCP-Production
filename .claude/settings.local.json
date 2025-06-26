@@ -25,7 +25,11 @@
       "Bash(nc:*)",
       "Bash(nmap:*)",
       "WebFetch(domain:docs.anthropic.com)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(grep:*)",
+      "Bash(rg:*)",
+      "Bash(python:*)",
+      "Bash(rm:*)"
     ],
     "deny": []
   }
