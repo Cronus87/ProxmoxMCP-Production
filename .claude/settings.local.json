@@ -41,7 +41,9 @@
       "Bash(systemctl:*)",
       "Bash(claude:*)",
       "Bash(docker exec:*)",
-      "Bash(\"/mnt/d/VS Code Projects/ProxmoxMCP-Production/emergency-restart-simple.sh\")"
+      "Bash(\"/mnt/d/VS Code Projects/ProxmoxMCP-Production/emergency-restart-simple.sh\")",
+      "Bash(git ls-tree:*)",
+      "Bash(git push:*)"
     ],
     "deny": []
   }
