@@ -32,7 +32,16 @@
       "Bash(rm:*)",
       "Bash(git rev-parse:*)",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(systemctl start:*)",
+      "Bash(systemctl status:*)",
+      "Bash(systemctl list-units:*)",
+      "Bash(ss:*)",
+      "Bash(find:*)",
+      "Bash(systemctl:*)",
+      "Bash(claude:*)",
+      "Bash(docker exec:*)",
+      "Bash(\"/mnt/d/VS Code Projects/ProxmoxMCP-Production/emergency-restart-simple.sh\")"
     ],
     "deny": []
   }

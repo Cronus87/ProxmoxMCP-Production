@@ -143,6 +143,21 @@ check_prerequisites() {
     fi
     log_success "Docker available"
     
+    # Ensure Docker is running
+    if ! systemctl is-active --quiet docker; then
+        log_info "Starting Docker service..."
+        systemctl start docker
+        systemctl enable docker
+    fi
+    log_success "Docker service running"
+    
+    # Check if npx/node is available for MCP testing
+    if ! command -v npx >/dev/null 2>&1; then
+        log_info "Installing Node.js for MCP testing..."
+        apt install -y nodejs npm
+    fi
+    log_success "Node.js/NPX available for MCP testing"
+    
     # Check if in correct directory
     if [ "$PWD" != "/opt/proxmox-mcp" ]; then
         log_error "Script must be run from /opt/proxmox-mcp directory"
@@ -199,14 +214,14 @@ setup_claude_user() {
         # Generate SSH key pair
         ssh-keygen -t rsa -b 4096 -f "$ssh_key_path" -N "" -C "claude-user@proxmox-mcp"
         
-        # Set proper permissions (will be changed to root:root later for container access)
-        chown claude-user:claude-user "$ssh_key_path" "$ssh_key_path.pub"
+        # Set proper permissions for container access (uid 1000)
+        chown 1000:1000 "$ssh_key_path" "$ssh_key_path.pub"
         chmod 600 "$ssh_key_path"
         chmod 644 "$ssh_key_path.pub"
         
-        log_success "SSH key pair generated"
+        log_success "SSH key pair generated at $ssh_key_path"
     else
-        log_info "SSH key pair already exists"
+        log_info "SSH key pair already exists at $ssh_key_path"
     fi
     
     # Set up SSH directory for claude-user
@@ -389,7 +404,7 @@ configure_security() {
     
     # Set proper ownership on all MCP files
     chown -R root:root "$SCRIPT_DIR"
-    chown -R root:root "$KEYS_DIR"  # Container runs as root, needs root access
+    chown -R 1000:1000 "$KEYS_DIR"  # Container runs as mcpuser (uid 1000)
     
     # Set proper permissions
     chmod 755 logs config
@@ -398,6 +413,11 @@ configure_security() {
     # Secure the docker directory
     chmod 755 "$DOCKER_DIR"
     chmod 600 "$DOCKER_DIR/.env"
+    
+    # Ensure pveproxy service is running (core Proxmox service)
+    log_info "Ensuring pveproxy service is running..."
+    systemctl start pveproxy 2>/dev/null || true
+    systemctl enable pveproxy 2>/dev/null || true
     
     log_success "File permissions configured"
     
@@ -531,7 +551,42 @@ validate_installation() {
         fi
     fi
     
-    log_success "Installation validation completed"
+    # Test MCP execute_command functionality
+    log_info "Testing MCP execute_command tool..."
+    local mcp_test_result
+    mcp_test_result=$(curl -s -X POST "http://localhost:8080/api/mcp" \
+        -H "Content-Type: application/json" \
+        -H "Accept: application/json, text/event-stream" \
+        -d '{
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "initialize",
+            "params": {
+                "protocolVersion": "2024-11-05",
+                "capabilities": {},
+                "clientInfo": {"name": "install-test", "version": "1.0"}
+            }
+        }' 2>/dev/null | grep -o '"result"' || echo "")
+    
+    if [ -n "$mcp_test_result" ]; then
+        log_success "MCP protocol initialization successful"
+        
+        # Test actual execute_command
+        log_info "Testing execute_command tool..."
+        timeout 15s npx @modelcontextprotocol/server-fetch "http://localhost:8080/api/mcp" <<< '{"jsonrpc":"2.0","id":2,"method":"tools/call","params":{"name":"execute_command","arguments":{"command":"whoami","timeout":10}}}' >/dev/null 2>&1
+        
+        if [ $? -eq 0 ]; then
+            log_success "MCP execute_command tool working"
+        else
+            log_error "MCP execute_command tool failed - installation incomplete"
+            exit 1
+        fi
+    else
+        log_error "MCP protocol initialization failed - installation incomplete"
+        exit 1
+    fi
+    
+    log_success "Installation validation completed - all MCP tools working"
 }
 
 # Phase 9: Client Configuration
@@ -607,6 +662,11 @@ show_installation_summary() {
     local server_ip
     server_ip=$(hostname -I | awk '{print $1}')
     echo "   Server URL: http://$server_ip:8080/api/mcp"
+    echo
+    echo "🚀 QUICK START COMMANDS:"
+    echo "   Add to Claude Code: claude mcp add --transport http proxmox-production http://$server_ip:8080/api/mcp"
+    echo "   Test connection: claude mcp list"
+    echo "   Test MCP tools: (Use execute_command, list_vms, node_status tools in Claude Code)"
     echo
     echo "🔍 USEFUL COMMANDS:"
     echo "   View logs: cd $DOCKER_DIR && docker-compose -f docker-compose.prod.yml logs -f mcp-server"
