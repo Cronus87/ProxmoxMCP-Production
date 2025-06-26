@@ -75,7 +75,7 @@ services:
       - "80:80"
       - "443:443"
     volumes:
-      - /opt/proxmox-mcp/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - /opt/proxmox-mcp/config/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
     networks:
