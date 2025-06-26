@@ -20,10 +20,10 @@ RUN groupadd -r mcpuser && useradd -r -g mcpuser -u 1000 mcpuser
 WORKDIR /app
 
 # Copy requirements first for better caching
-COPY requirements-http.txt .
+COPY requirements.txt .
 
 # Install Python dependencies
-RUN pip install --no-cache-dir -r requirements-http.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY . .
@@ -42,7 +42,7 @@ RUN rm -rf \
 
 # Set proper permissions
 RUN chown -R mcpuser:mcpuser /app && \
-    chmod +x run_mcp_server_http.py
+    chmod +x src/main.py
 
 # Create required directories
 RUN mkdir -p /app/logs && \
@@ -73,4 +73,4 @@ LABEL \
     org.opencontainers.image.source="https://github.com/your-username/FullProxmoxMCP"
 
 # Start command
-CMD ["python", "run_mcp_server_http.py", "--host", "0.0.0.0", "--port", "8080"]
+CMD ["python", "src/main.py", "--host", "0.0.0.0", "--port", "8080"]
