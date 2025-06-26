@@ -367,7 +367,7 @@ def main():
     logger.info(f"📚 API docs: http://{args.host}:{args.port}/docs")
     
     uvicorn.run(
-        "run_mcp_server_http:app",
+        "main:app",
         host=args.host,
         port=args.port,
         reload=args.reload,
