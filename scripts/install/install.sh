@@ -6,10 +6,11 @@ set -eu
 
 # Global configuration
 readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-readonly LOG_FILE="${SCRIPT_DIR}/installation.log"
-readonly BACKUP_DIR="${SCRIPT_DIR}/backups/$(date +%Y%m%d_%H%M%S)"
-readonly DOCKER_DIR="${SCRIPT_DIR}/docker"
-readonly KEYS_DIR="${SCRIPT_DIR}/keys"
+readonly PROJECT_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
+readonly LOG_FILE="${PROJECT_ROOT}/installation.log"
+readonly BACKUP_DIR="${PROJECT_ROOT}/backups/$(date +%Y%m%d_%H%M%S)"
+readonly DOCKER_DIR="${PROJECT_ROOT}/docker"
+readonly KEYS_DIR="${PROJECT_ROOT}/keys"
 
 # Color codes for output
 readonly RED='\033[0;31m'
@@ -158,18 +159,20 @@ check_prerequisites() {
     fi
     log_success "Node.js/NPX available for MCP testing"
     
-    # Check if in correct directory
-    if [ "$PWD" != "/opt/proxmox-mcp" ]; then
-        log_error "Script must be run from /opt/proxmox-mcp directory"
+    # Check if in correct project structure
+    if [ ! -f "${PROJECT_ROOT}/requirements.txt" ] || [ ! -d "${PROJECT_ROOT}/docker" ]; then
+        log_error "Script must be run from proper Proxmox MCP installation directory"
+        log_error "Expected project root: ${PROJECT_ROOT}"
         exit 1
     fi
-    log_success "Running from correct directory"
+    log_success "Running from correct project directory: ${PROJECT_ROOT}"
     
     # Check required files and directories
     local required_items=(
-        "docker/docker-compose.prod.yml"
-        "core/proxmox_mcp_server.py"
-        "run_mcp_server_http.py"
+        "${PROJECT_ROOT}/docker/docker-compose.prod.yml"
+        "${PROJECT_ROOT}/src/core/proxmox_mcp_server.py"
+        "${PROJECT_ROOT}/src/main.py"
+        "${PROJECT_ROOT}/config/sudoers/claude-user-security-enhanced-sudoers"
     )
     
     for item in "${required_items[@]}"; do
@@ -270,7 +273,7 @@ setup_claude_user() {
     fi
     
     # Deploy enhanced sudoers configuration with forced replacement
-    if [ -f "claude-user-security-enhanced-sudoers" ]; then
+    if [ -f "${PROJECT_ROOT}/config/sudoers/claude-user-security-enhanced-sudoers" ]; then
         log_info "Deploying enhanced security configuration..."
         
         # Backup current sudoers if exists
@@ -282,7 +285,7 @@ setup_claude_user() {
         rm -f "/etc/sudoers.d/claude-user"
         
         # Deploy enhanced security with force
-        cp "claude-user-security-enhanced-sudoers" "/etc/sudoers.d/claude-user"
+        cp "${PROJECT_ROOT}/config/sudoers/claude-user-security-enhanced-sudoers" "/etc/sudoers.d/claude-user"
         chmod 440 "/etc/sudoers.d/claude-user"
         chown root:root "/etc/sudoers.d/claude-user"
         
@@ -311,7 +314,7 @@ setup_claude_user() {
         fi
         
     else
-        log_error "Enhanced security file not found: claude-user-security-enhanced-sudoers"
+        log_error "Enhanced security file not found: ${PROJECT_ROOT}/config/sudoers/claude-user-security-enhanced-sudoers"
         log_error "Cannot deploy VM/LXC creation capabilities"
         exit 1
     fi
@@ -498,7 +501,7 @@ deploy_containers() {
     
     log_info "Preparing container deployment..."
     
-    # Change to docker directory
+    # Change to docker directory  
     cd "$DOCKER_DIR"
     
     # Stop any existing containers
@@ -663,8 +666,8 @@ generate_client_config() {
     
     log_info "Generating Claude Code client configuration..."
     
-    # Return to main directory
-    cd "$SCRIPT_DIR"
+    # Return to project root directory
+    cd "$PROJECT_ROOT"
     
     # Get server IP
     local server_ip

@@ -74,7 +74,41 @@ test_results/
 # Docker
 docker-compose.override.yml
 
-# Documentation (internal project docs, not for public repo)
-docs/
-/test_env
+# Development artifacts
+test_env/
+*.test
+debug_*
+temp_*
+tmp_*
+
+# Editor backup files (additional patterns)
+.*.swp
+.*.swo
+*~
+*.tmp
+
+# Additional Python patterns
+.pytest_cache/
+.tox/
+.nox/
+.coverage
+htmlcov/
+
+# Additional OS patterns
+.fuse_hidden*
+.Trashes
+.AppleDouble
+.LSOverride
+
+# Additional Docker patterns
+docker-compose.override.yml
+.dockerignore.local
+
+# Cleanup scripts (temporary)
+cleanup-*.sh
+fix-*.sh
+restart-*.sh
+emergency-*.py
+
+# Claude settings (keep local)
 /.claude
