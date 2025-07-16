@@ -49,7 +49,10 @@
       "Bash(sudo systemctl status:*)",
       "mcp__proxmox-production__proxmox_api",
       "Bash(echo)",
-      "Bash(cp:*)"
+      "Bash(cp:*)",
+      "WebFetch(domain:www.anthropic.com)",
+      "Bash(pip3 list:*)",
+      "mcp__proxmox-production__vm_status"
     ],
     "deny": []
   }

@@ -1,0 +1,452 @@
+{% extends "base.html" %}
+
+{% block title %}Approved Devices - Proxmox MCP Admin{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h1 class="h3 mb-0">
+            <i class="bi bi-laptop"></i>
+            Approved Devices
+        </h1>
+        <p class="text-muted">Manage approved devices and their access tokens</p>
+    </div>
+    <div class="col-auto">
+        <button class="btn btn-outline-primary" onclick="refreshData()">
+            <i class="bi bi-arrow-clockwise"></i>
+            Refresh
+        </button>
+    </div>
+</div>
+
+<!-- Device Filters -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="row align-items-center">
+                    <div class="col-md-4">
+                        <label for="statusFilter" class="form-label">Filter by Status</label>
+                        <select class="form-select" id="statusFilter" onchange="filterDevices()">
+                            <option value="all">All Devices</option>
+                            <option value="approved">Active</option>
+                            <option value="expired">Expired</option>
+                            <option value="revoked">Revoked</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="searchFilter" class="form-label">Search Devices</label>
+                        <input type="text" class="form-control" id="searchFilter" placeholder="Search by name or IP..." onkeyup="filterDevices()">
+                    </div>
+                    <div class="col-md-4">
+                        <label for="sortBy" class="form-label">Sort By</label>
+                        <select class="form-select" id="sortBy" onchange="filterDevices()">
+                            <option value="created_at">Creation Date</option>
+                            <option value="last_used_at">Last Used</option>
+                            <option value="device_name">Device Name</option>
+                            <option value="usage_count">Usage Count</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Approved Devices -->
+<div class="row">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-collection"></i>
+                    Device Management
+                </h5>
+                <span class="badge bg-success" id="device-count">0</span>
+            </div>
+            <div class="card-body">
+                <div id="devices-container">
+                    <div class="text-center py-4">
+                        <div class="spinner-border text-muted" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="text-muted mt-2">Loading approved devices...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Device Details Modal -->
+<div class="modal fade" id="deviceModal" tabindex="-1" aria-labelledby="deviceModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deviceModalLabel">Device Details</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6>Basic Information</h6>
+                        <table class="table table-sm">
+                            <tbody>
+                                <tr>
+                                    <td><strong>Device Name:</strong></td>
+                                    <td id="modal-device-name"></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Device ID:</strong></td>
+                                    <td id="modal-device-id" class="font-monospace small"></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>IP Address:</strong></td>
+                                    <td id="modal-ip-address"></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Status:</strong></td>
+                                    <td id="modal-status"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="col-md-6">
+                        <h6>Usage Statistics</h6>
+                        <table class="table table-sm">
+                            <tbody>
+                                <tr>
+                                    <td><strong>Created:</strong></td>
+                                    <td id="modal-created-at"></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Expires:</strong></td>
+                                    <td id="modal-expires-at"></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Last Used:</strong></td>
+                                    <td id="modal-last-used"></td>
+                                </tr>
+                                <tr>
+                                    <td><strong>Usage Count:</strong></td>
+                                    <td id="modal-usage-count"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                
+                <div class="mt-3">
+                    <h6>Permissions</h6>
+                    <div id="modal-permissions"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-danger" id="revokeDeviceBtn">
+                    <i class="bi bi-shield-x"></i>
+                    Revoke Access
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Revocation Confirmation Modal -->
+<div class="modal fade" id="revokeModal" tabindex="-1" aria-labelledby="revokeModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="revokeModalLabel">Revoke Device Access</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    <strong>Warning:</strong> This will immediately revoke access for this device.
+                </div>
+                
+                <p>Are you sure you want to revoke access for device <strong id="revoke-device-name"></strong>?</p>
+                
+                <div class="mb-3">
+                    <label for="revocationReason" class="form-label">Reason for Revocation (Optional)</label>
+                    <textarea class="form-control" id="revocationReason" rows="3" placeholder="Enter reason for revocation..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-danger" id="confirmRevocation">
+                    <i class="bi bi-shield-x"></i>
+                    Revoke Access
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let allDevices = [];
+    let filteredDevices = [];
+    let currentDeviceId = null;
+    
+    async function refreshData() {
+        try {
+            const devices = await apiCall('/api/devices');
+            allDevices = devices;
+            filterDevices();
+            
+        } catch (error) {
+            console.error('Failed to refresh devices:', error);
+        }
+    }
+    
+    function filterDevices() {
+        const statusFilter = document.getElementById('statusFilter').value;
+        const searchFilter = document.getElementById('searchFilter').value.toLowerCase();
+        const sortBy = document.getElementById('sortBy').value;
+        
+        // Filter devices
+        filteredDevices = allDevices.filter(device => {
+            // Status filter
+            if (statusFilter !== 'all' && device.status !== statusFilter) {
+                return false;
+            }
+            
+            // Search filter
+            if (searchFilter && 
+                !device.device_name.toLowerCase().includes(searchFilter) &&
+                !device.ip_address.includes(searchFilter)) {
+                return false;
+            }
+            
+            return true;
+        });
+        
+        // Sort devices
+        filteredDevices.sort((a, b) => {
+            let aValue = a[sortBy];
+            let bValue = b[sortBy];
+            
+            if (sortBy === 'usage_count') {
+                return (bValue || 0) - (aValue || 0);
+            } else if (sortBy.includes('_at')) {
+                return new Date(bValue || 0) - new Date(aValue || 0);
+            } else {
+                return (aValue || '').localeCompare(bValue || '');
+            }
+        });
+        
+        displayDevices();
+    }
+    
+    function displayDevices() {
+        const container = document.getElementById('devices-container');
+        document.getElementById('device-count').textContent = filteredDevices.length;
+        
+        if (filteredDevices.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-5 text-muted">
+                    <i class="bi bi-laptop fs-1"></i>
+                    <h5 class="mt-3">No Devices Found</h5>
+                    <p>No devices match the current filter criteria.</p>
+                </div>
+            `;
+            return;
+        }
+        
+        let html = '';
+        filteredDevices.forEach(device => {
+            const statusClass = getStatusClass(device.status);
+            const statusIcon = getStatusIcon(device.status);
+            const createdDate = new Date(device.created_at).toLocaleString();
+            const expiresDate = new Date(device.expires_at).toLocaleString();
+            const lastUsed = device.last_used_at ? getTimeAgo(device.last_used_at) : 'Never';
+            const isExpired = new Date(device.expires_at) < new Date();
+            const actualStatus = isExpired ? 'expired' : device.status;
+            
+            html += `
+                <div class="card device-card ${actualStatus} mb-3">
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <h5 class="card-title mb-1">
+                                    <i class="bi bi-laptop"></i>
+                                    ${device.device_name}
+                                    <span class="badge ${getStatusClass(actualStatus)} ms-2">
+                                        <i class="bi bi-${getStatusIcon(actualStatus)}"></i>
+                                        ${actualStatus.charAt(0).toUpperCase() + actualStatus.slice(1)}
+                                    </span>
+                                </h5>
+                                <p class="card-text text-muted mb-2">
+                                    <i class="bi bi-geo-alt"></i> ${device.ip_address} • 
+                                    <i class="bi bi-clock"></i> Last used ${lastUsed} •
+                                    <i class="bi bi-graph-up"></i> ${device.usage_count || 0} uses
+                                </p>
+                                <p class="card-text small">
+                                    <strong>Created:</strong> ${createdDate}<br>
+                                    <strong>Expires:</strong> ${expiresDate}
+                                    ${isExpired ? ' <span class="text-danger">(Expired)</span>' : ''}
+                                </p>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <div class="btn-group" role="group">
+                                    <button class="btn btn-outline-primary btn-sm" onclick="showDeviceDetails('${device.device_id}')">
+                                        <i class="bi bi-info-circle"></i>
+                                        Details
+                                    </button>
+                                    ${actualStatus === 'approved' ? `
+                                        <button class="btn btn-outline-danger btn-sm" onclick="showRevokeModal('${device.device_id}')">
+                                            <i class="bi bi-shield-x"></i>
+                                            Revoke
+                                        </button>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        
+        container.innerHTML = html;
+    }
+    
+    function getStatusClass(status) {
+        switch (status) {
+            case 'approved': return 'bg-success';
+            case 'expired': return 'bg-secondary';
+            case 'revoked': return 'bg-danger';
+            default: return 'bg-warning';
+        }
+    }
+    
+    function getStatusIcon(status) {
+        switch (status) {
+            case 'approved': return 'check-circle';
+            case 'expired': return 'clock';
+            case 'revoked': return 'shield-x';
+            default: return 'clock';
+        }
+    }
+    
+    function showDeviceDetails(deviceId) {
+        const device = allDevices.find(d => d.device_id === deviceId);
+        if (!device) return;
+        
+        currentDeviceId = deviceId;
+        const isExpired = new Date(device.expires_at) < new Date();
+        const actualStatus = isExpired ? 'expired' : device.status;
+        
+        // Populate modal
+        document.getElementById('modal-device-name').textContent = device.device_name;
+        document.getElementById('modal-device-id').textContent = device.device_id;
+        document.getElementById('modal-ip-address').textContent = device.ip_address;
+        document.getElementById('modal-status').innerHTML = `
+            <span class="badge ${getStatusClass(actualStatus)}">
+                <i class="bi bi-${getStatusIcon(actualStatus)}"></i>
+                ${actualStatus.charAt(0).toUpperCase() + actualStatus.slice(1)}
+            </span>
+        `;
+        document.getElementById('modal-created-at').textContent = new Date(device.created_at).toLocaleString();
+        document.getElementById('modal-expires-at').textContent = new Date(device.expires_at).toLocaleString();
+        document.getElementById('modal-last-used').textContent = device.last_used_at ? 
+            new Date(device.last_used_at).toLocaleString() : 'Never';
+        document.getElementById('modal-usage-count').textContent = device.usage_count || 0;
+        
+        // Populate permissions
+        const permissionsContainer = document.getElementById('modal-permissions');
+        if (device.permissions && device.permissions.length > 0) {
+            let permissionsHTML = '';
+            device.permissions.forEach(permission => {
+                permissionsHTML += `<span class="badge bg-info me-2 mb-1">${permission}</span>`;
+            });
+            permissionsContainer.innerHTML = permissionsHTML;
+        } else {
+            permissionsContainer.innerHTML = '<span class="text-muted">No specific permissions defined</span>';
+        }
+        
+        // Show/hide revoke button
+        const revokeBtn = document.getElementById('revokeDeviceBtn');
+        if (actualStatus === 'approved') {
+            revokeBtn.style.display = 'inline-block';
+        } else {
+            revokeBtn.style.display = 'none';
+        }
+        
+        const modal = new bootstrap.Modal(document.getElementById('deviceModal'));
+        modal.show();
+    }
+    
+    function showRevokeModal(deviceId) {
+        const device = allDevices.find(d => d.device_id === deviceId);
+        if (!device) return;
+        
+        currentDeviceId = deviceId;
+        document.getElementById('revoke-device-name').textContent = device.device_name;
+        document.getElementById('revocationReason').value = '';
+        
+        // Hide device details modal if open
+        const deviceModal = bootstrap.Modal.getInstance(document.getElementById('deviceModal'));
+        if (deviceModal) deviceModal.hide();
+        
+        const modal = new bootstrap.Modal(document.getElementById('revokeModal'));
+        modal.show();
+    }
+    
+    async function revokeDevice() {
+        if (!currentDeviceId) return;
+        
+        try {
+            const reason = document.getElementById('revocationReason').value.trim() || 'Manual revocation';
+            
+            await apiCall(`/api/revoke/${currentDeviceId}`, {
+                method: 'POST',
+                body: JSON.stringify({ reason: reason })
+            });
+            
+            // Hide modal
+            bootstrap.Modal.getInstance(document.getElementById('revokeModal')).hide();
+            
+            // Refresh data
+            refreshData();
+            
+            showToast('Device access revoked successfully', 'success');
+            
+        } catch (error) {
+            showToast(`Failed to revoke device: ${error.message}`, 'error');
+        }
+    }
+    
+    function getTimeAgo(timestamp) {
+        const now = new Date();
+        const time = new Date(timestamp);
+        const diffMs = now - time;
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMins / 60);
+        const diffDays = Math.floor(diffHours / 24);
+        
+        if (diffMins < 1) return 'just now';
+        if (diffMins < 60) return `${diffMins}m ago`;
+        if (diffHours < 24) return `${diffHours}h ago`;
+        if (diffDays < 7) return `${diffDays}d ago`;
+        
+        return time.toLocaleDateString();
+    }
+    
+    // Event listeners
+    document.getElementById('revokeDeviceBtn').addEventListener('click', function() {
+        if (currentDeviceId) {
+            showRevokeModal(currentDeviceId);
+        }
+    });
+    
+    document.getElementById('confirmRevocation').addEventListener('click', revokeDevice);
+    
+    // Initialize
+    document.addEventListener('DOMContentLoaded', function() {
+        refreshData();
+    });
+</script>
+{% endblock %}

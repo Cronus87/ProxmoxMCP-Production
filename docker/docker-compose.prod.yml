@@ -14,11 +14,14 @@ services:
     container_name: proxmox-mcp-server
     restart: unless-stopped
     ports:
-      - "0.0.0.0:8080:8080"
+      - "0.0.0.0:8080:8080"    # MCP server (internet accessible)
+      - "192.168.1.0/24:8081:8081"  # Admin interface (local network only)
     environment:
       - MCP_HOST=0.0.0.0
       - MCP_PORT=8080
+      - ADMIN_PORT=8081
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
+      - DEVICE_AUTH_ENABLED=true
       # Proxmox configuration from environment
       - SSH_TARGET=${SSH_TARGET}
       - SSH_HOST=${SSH_HOST}
@@ -34,12 +37,13 @@ services:
       - ENABLE_DANGEROUS_COMMANDS=${ENABLE_DANGEROUS_COMMANDS:-false}
     volumes:
       - mcp_logs:/app/logs
+      - mcp_data:/app/data      # Device authentication storage
       - /opt/proxmox-mcp/keys:/app/keys:ro
       - /opt/proxmox-mcp/config:/app/config:ro
     networks:
       - mcp-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      test: ["CMD", "sh", "-c", "curl -f http://localhost:8080/health && curl -f http://localhost:8081/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -136,6 +140,8 @@ networks:
 volumes:
   mcp_logs:
     name: mcp_logs
+  mcp_data:
+    name: mcp_data
   caddy_data:
     name: caddy_data
   caddy_config:

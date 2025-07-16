@@ -1,0 +1,370 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Proxmox MCP Admin{% endblock %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col">
+        <h1 class="h3 mb-0">
+            <i class="bi bi-speedometer2"></i>
+            Dashboard
+        </h1>
+        <p class="text-muted">Proxmox MCP Server Administration Overview</p>
+    </div>
+    <div class="col-auto">
+        <button class="btn btn-outline-primary" onclick="refreshData()">
+            <i class="bi bi-arrow-clockwise"></i>
+            Refresh
+        </button>
+    </div>
+</div>
+
+<!-- System Stats -->
+<div class="row mb-4">
+    <div class="col-md-3 col-sm-6 mb-3">
+        <div class="card stats-card border-0 bg-primary text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title mb-0" id="active-devices">{{ stats.active_devices }}</h5>
+                        <p class="card-text">Active Devices</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-laptop fs-2"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 col-sm-6 mb-3">
+        <div class="card stats-card border-0 bg-warning text-dark">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title mb-0" id="pending-requests">{{ stats.pending_requests }}</h5>
+                        <p class="card-text">Pending Requests</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-clock fs-2"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 col-sm-6 mb-3">
+        <div class="card stats-card border-0 bg-success text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title mb-0" id="total-devices">{{ stats.total_devices }}</h5>
+                        <p class="card-text">Total Devices</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-collection fs-2"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3 col-sm-6 mb-3">
+        <div class="card stats-card border-0 bg-danger text-white">
+            <div class="card-body">
+                <div class="d-flex justify-content-between">
+                    <div>
+                        <h5 class="card-title mb-0" id="revoked-devices">{{ stats.revoked_devices }}</h5>
+                        <p class="card-text">Revoked Devices</p>
+                    </div>
+                    <div class="align-self-center">
+                        <i class="bi bi-shield-x fs-2"></i>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-lightning"></i>
+                    Quick Actions
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <a href="/pending" class="btn btn-warning w-100 d-flex align-items-center justify-content-between">
+                            <span>
+                                <i class="bi bi-clock"></i>
+                                Review Pending Requests
+                            </span>
+                            <span class="badge bg-light text-dark" id="pending-badge">{{ stats.pending_requests }}</span>
+                        </a>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <a href="/devices" class="btn btn-success w-100">
+                            <i class="bi bi-laptop"></i>
+                            Manage Devices
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Activity -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-activity"></i>
+                    Recent Activity
+                </h5>
+                <small class="text-muted">Last updated: <span id="last-updated"></span></small>
+            </div>
+            <div class="card-body">
+                <div id="recent-activity">
+                    <div class="text-center py-4">
+                        <div class="spinner-border text-muted" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="text-muted mt-2">Loading recent activity...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- System Information -->
+<div class="row">
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-info-circle"></i>
+                    System Information
+                </h5>
+            </div>
+            <div class="card-body">
+                <table class="table table-sm">
+                    <tbody>
+                        <tr>
+                            <td><strong>MCP Server Status</strong></td>
+                            <td><span class="badge bg-success">Running</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>MCP Port</strong></td>
+                            <td>8080</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Admin Port</strong></td>
+                            <td>8081</td>
+                        </tr>
+                        <tr>
+                            <td><strong>Authentication</strong></td>
+                            <td><span class="badge bg-success">Enabled</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Network Restriction</strong></td>
+                            <td><span class="badge bg-info">Local Only</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="card-title mb-0">
+                    <i class="bi bi-shield-check"></i>
+                    Security Status
+                </h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between">
+                        <span>Device Authentication</span>
+                        <span class="badge bg-success">Active</span>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between">
+                        <span>Token Validation</span>
+                        <span class="badge bg-success">Active</span>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between">
+                        <span>Rate Limiting</span>
+                        <span class="badge bg-success">Active</span>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between">
+                        <span>Network Filtering</span>
+                        <span class="badge bg-success">Active</span>
+                    </div>
+                </div>
+                <div class="mb-0">
+                    <div class="d-flex justify-content-between">
+                        <span>Expired Tokens</span>
+                        <span class="badge bg-secondary" id="expired-count">{{ stats.expired_devices }}</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let lastActivityCheck = 0;
+    
+    async function refreshData() {
+        try {
+            // Update stats
+            const stats = await apiCall('/api/stats');
+            
+            // Update stat cards
+            document.getElementById('active-devices').textContent = stats.active_devices;
+            document.getElementById('pending-requests').textContent = stats.pending_requests;
+            document.getElementById('total-devices').textContent = stats.total_devices;
+            document.getElementById('revoked-devices').textContent = stats.revoked_devices;
+            document.getElementById('expired-count').textContent = stats.expired_devices;
+            document.getElementById('pending-badge').textContent = stats.pending_requests;
+            
+            // Update last updated time
+            document.getElementById('last-updated').textContent = new Date().toLocaleTimeString();
+            
+            // Load recent activity
+            await loadRecentActivity();
+            
+        } catch (error) {
+            console.error('Failed to refresh data:', error);
+        }
+    }
+    
+    async function loadRecentActivity() {
+        try {
+            const activityContainer = document.getElementById('recent-activity');
+            
+            // Get recent devices (approved and pending)
+            const [approvedDevices, pendingRequests] = await Promise.all([
+                apiCall('/api/devices'),
+                apiCall('/api/pending')
+            ]);
+            
+            // Combine and sort by timestamp
+            const allActivity = [];
+            
+            // Add approved devices
+            approvedDevices.forEach(device => {
+                allActivity.push({
+                    type: 'approved',
+                    device_name: device.device_name,
+                    timestamp: device.created_at,
+                    ip_address: device.ip_address,
+                    last_used: device.last_used_at,
+                    usage_count: device.usage_count
+                });
+            });
+            
+            // Add pending requests
+            pendingRequests.forEach(request => {
+                allActivity.push({
+                    type: 'pending',
+                    device_name: request.device_name,
+                    timestamp: request.requested_at,
+                    ip_address: request.ip_address,
+                    client_info: request.client_info
+                });
+            });
+            
+            // Sort by timestamp (newest first)
+            allActivity.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+            
+            // Display recent activity
+            if (allActivity.length === 0) {
+                activityContainer.innerHTML = `
+                    <div class="text-center py-4 text-muted">
+                        <i class="bi bi-inbox fs-1"></i>
+                        <p>No recent activity</p>
+                    </div>
+                `;
+            } else {
+                let activityHTML = '<div class="list-group list-group-flush">';
+                
+                allActivity.slice(0, 10).forEach(activity => {
+                    const timeAgo = getTimeAgo(activity.timestamp);
+                    const icon = activity.type === 'approved' ? 'check-circle text-success' : 'clock text-warning';
+                    const action = activity.type === 'approved' ? 'Device approved' : 'Registration requested';
+                    
+                    activityHTML += `
+                        <div class="list-group-item border-0 px-0">
+                            <div class="d-flex align-items-center">
+                                <i class="bi bi-${icon} me-3"></i>
+                                <div class="flex-grow-1">
+                                    <div class="d-flex justify-content-between align-items-start">
+                                        <div>
+                                            <h6 class="mb-1">${action}: ${activity.device_name}</h6>
+                                            <p class="mb-1 text-muted small">
+                                                From ${activity.ip_address}
+                                                ${activity.usage_count ? ` • Used ${activity.usage_count} times` : ''}
+                                            </p>
+                                        </div>
+                                        <small class="text-muted">${timeAgo}</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                activityHTML += '</div>';
+                activityContainer.innerHTML = activityHTML;
+            }
+            
+        } catch (error) {
+            document.getElementById('recent-activity').innerHTML = `
+                <div class="alert alert-warning">
+                    <i class="bi bi-exclamation-triangle"></i>
+                    Failed to load recent activity
+                </div>
+            `;
+        }
+    }
+    
+    function getTimeAgo(timestamp) {
+        const now = new Date();
+        const time = new Date(timestamp);
+        const diffMs = now - time;
+        const diffMins = Math.floor(diffMs / 60000);
+        const diffHours = Math.floor(diffMins / 60);
+        const diffDays = Math.floor(diffHours / 24);
+        
+        if (diffMins < 1) return 'Just now';
+        if (diffMins < 60) return `${diffMins}m ago`;
+        if (diffHours < 24) return `${diffHours}h ago`;
+        if (diffDays < 7) return `${diffDays}d ago`;
+        
+        return time.toLocaleDateString();
+    }
+    
+    // Initialize dashboard
+    document.addEventListener('DOMContentLoaded', function() {
+        refreshData();
+    });
+</script>
+{% endblock %}
