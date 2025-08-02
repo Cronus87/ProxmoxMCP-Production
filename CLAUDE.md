@@ -325,6 +325,10 @@ Parallel Workstreams:
     - Verify API functionality
 ```
 
+### **BRANCH AND DEPLOYMENT GUIDELINES:**
+- **You are only allowed to commit to develop branch**
+- **Manual control of develop to main pushes**
+
 ---
 
 **🎯 PROJECT MANAGER CLAUDE READY FOR COORDINATED AGENT DEPLOYMENT**
