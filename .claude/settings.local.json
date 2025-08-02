@@ -52,7 +52,24 @@
       "Bash(cp:*)",
       "WebFetch(domain:www.anthropic.com)",
       "Bash(pip3 list:*)",
-      "mcp__proxmox-production__vm_status"
+      "mcp__proxmox-production__vm_status",
+      "Bash(git check-ignore:*)",
+      "Bash(ip link:*)",
+      "Bash(cat:*)",
+      "Bash(dmesg:*)",
+      "Bash(sudo apt:*)",
+      "Bash(sudo apt install:*)",
+      "mcp__proxmox-production__vm_action",
+      "Bash(sudo:*)",
+      "Bash(/usr/sbin/qm config:*)",
+      "Bash(qm config:*)",
+      "Bash(hostname)",
+      "Bash(ping:*)",
+      "Bash(for:*)",
+      "Bash(do echo \"Trying $ip...\")",
+      "Bash(echo:*)",
+      "Bash(break)",
+      "Bash(done)"
     ],
     "deny": []
   }
